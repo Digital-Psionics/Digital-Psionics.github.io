@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -79,7 +78,8 @@
   .canvas-wrap { position: relative; width: 100%; max-width: 700px; aspect-ratio: 1 / 1; border-radius: 20px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 0 0 1px rgba(90,0,155,0.08), 0 40px 100px rgba(0,0,0,0.8), 0 0 80px rgba(90,0,155,0.08), inset 0 0 100px rgba(0,0,0,0.5); }
   .canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: 20px; pointer-events: none; box-shadow: inset 0 0 60px rgba(0,0,0,0.6); z-index: 2; }
   .canvas-wrap::after { content: ''; position: absolute; inset: 0; border-radius: 20px; pointer-events: none; border: 1px solid rgba(160,88,210,0.08); z-index: 3; }
-  #sigilCanvas { width: 100%; height: 100%; display: block; image-rendering: auto; }
+  /* ── PATCH: img replaces canvas; CSS sizes it to fill the box ── */
+  #sigilCanvas { width: 100%; height: 100%; display: block; object-fit: contain; }
   .canvas-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: var(--muted); font-family: 'Cinzel', serif; font-size: 0.9rem; letter-spacing: 0.14em; text-transform: uppercase; pointer-events: none; z-index: 1; transition: opacity 0.5s; }
   .canvas-placeholder.hidden { opacity: 0; }
   .canvas-placeholder .orb { width: 60px; height: 60px; border-radius: 50%; border: 1.5px solid var(--border); position: relative; animation: pulse 3s ease-in-out infinite; }
@@ -211,6 +211,7 @@
 <base target="_blank">
 <base target="_blank">
 <base target="_blank">
+<base target="_blank">
 </head>
 <body>
 
@@ -254,7 +255,8 @@
       <div class="orb"></div>
       <span>Enter an intention and press Forge</span>
     </div>
-    <canvas id="sigilCanvas"></canvas>
+    <!-- PATCH: img instead of canvas so right-click → Save Image uses full resolution src -->
+    <img id="sigilCanvas" alt="Generated sigil" style="width:100%;height:100%;display:none;object-fit:contain;">
   </div>
 
   <div class="glyph-preview" id="glyphPreview"></div>
@@ -391,10 +393,6 @@ function pickMultipliers(sd){
 
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
 
-// gaussianBlur() blurs a canvas IN PLACE and returns the same reference.
-// Whenever a source canvas needs to be blurred more than once (e.g. a
-// cached glyph mask reused across multiple blur passes/instances), it
-// must be cloned first or each successive blur compounds on the last.
 function cloneCanvas(src){
   const c=document.createElement('canvas');
   c.width=src.width;
@@ -404,7 +402,6 @@ function cloneCanvas(src){
 }
 function lerp(a,b,t){return [0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));}
 
-// ── Gaussian Blur for Canvas 2D ─────────────────────────────
 function gaussianBlur(canvas, radius){
   const w=canvas.width, h=canvas.height;
   const src=canvas.getContext('2d').getImageData(0,0,w,h);
@@ -468,7 +465,6 @@ function gaussianBlur(canvas, radius){
   return canvas;
 }
 
-// ── Screen blend mode (RGB only) ──────────────────────────
 function screenBlend(base, top){
   const w=base.width, h=base.height;
   const bCtx=base.getContext('2d');
@@ -488,7 +484,6 @@ function screenBlend(base, top){
   return base;
 }
 
-// ── Vignette ──────────────────────────────────────────────
 function applyVignette(canvas, cx, cy, maxDist){
   const w=canvas.width, h=canvas.height;
   const ctx=canvas.getContext('2d');
@@ -509,7 +504,6 @@ function applyVignette(canvas, cx, cy, maxDist){
   return canvas;
 }
 
-// ── Mask helpers ──────────────────────────────────────────
 function createDotTriangleMask(size, angleRad) {
   const c = document.createElement('canvas');
   c.width = size;
@@ -1057,7 +1051,6 @@ class SigilForge {
     return img;
   }
 
-  // ── Ring layer: thin sharp lines only, NO glow blur ──────
   _ringLayer(){
     const img=document.createElement('canvas');
     img.width=this._S;img.height=this._S;
@@ -1070,14 +1063,12 @@ class SigilForge {
     ctx.fillStyle='rgb(0,0,0)';
     ctx.fillRect(0,0,this._S,this._S);
 
-    // Single thin sharp ring line — no glow passes
     ctx.beginPath();
     ctx.arc(this._cx,this._cy,r,0,2*Math.PI);
     ctx.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
     ctx.lineWidth=s*2;
     ctx.stroke();
 
-    // Tri-dot symbols — drawn as sharp dots, no blur
     const nGlyphs=this.chaosGlyphs.length;
     if(nGlyphs>0){
       const symR=r*0.88;
@@ -1101,7 +1092,6 @@ class SigilForge {
           const dx=gx+triR*Math.cos(a);
           const dy=gy+triR*Math.sin(a);
 
-          // Sharp dot only — no glow
           ctx.beginPath();
           ctx.arc(dx,dy,dotR,0,2*Math.PI);
           ctx.fillStyle=`rgb(${symCol[0]},${symCol[1]},${symCol[2]})`;
@@ -1112,7 +1102,6 @@ class SigilForge {
     return img;
   }
 
-  // ── Glyph ring: render glyphs as masks with proper glow ──
   _glyphRingLayer(){
     const img=document.createElement('canvas');
     img.width=this._S;img.height=this._S;
@@ -1162,7 +1151,6 @@ class SigilForge {
       const gxOff=Math.floor(gx-targetSize/2);
       const gyOff=Math.floor(gy-targetSize/2);
 
-      // Layer 1: wide white haze
       let haze=gaussianBlur(cloneCanvas(mask),fontSize*10.0);
       const hCtx=haze.getContext('2d');
       const hData=hCtx.getImageData(0,0,haze.width,haze.height);
@@ -1174,7 +1162,6 @@ class SigilForge {
       g2Ctx.globalCompositeOperation='source-over';
       g2Ctx.drawImage(haze,gxOff,gyOff);
 
-      // Layer 2: tight white glow
       let glow=gaussianBlur(cloneCanvas(mask),fontSize*4.5);
       const gCtx=glow.getContext('2d');
       const gData=gCtx.getImageData(0,0,glow.width,glow.height);
@@ -1186,7 +1173,6 @@ class SigilForge {
       goCtx.globalCompositeOperation='source-over';
       goCtx.drawImage(glow,gxOff,gyOff);
 
-      // Layer 3: white-hot bloom core
       let bloom=gaussianBlur(cloneCanvas(mask),fontSize*6.0);
       const bCtx=bloom.getContext('2d');
       const bData=bCtx.getImageData(0,0,bloom.width,bloom.height);
@@ -1198,7 +1184,6 @@ class SigilForge {
       wCtx.globalCompositeOperation='source-over';
       wCtx.drawImage(bloom,gxOff,gyOff);
 
-      // Layer 4: sharp colored face
       const face=document.createElement('canvas');
       face.width=targetSize;face.height=targetSize;
       const fCtx=face.getContext('2d');
@@ -1221,7 +1206,6 @@ class SigilForge {
     d.globalCompositeOperation='source-over';
     d.drawImage(mainOverlay,0,0);
 
-    // Outermost ring — thin sharp line only, NO glow blur
     const r=outerRingR;
     d.beginPath();
     d.arc(this._cx,this._cy,r,0,2*Math.PI);
@@ -1348,8 +1332,6 @@ function updateInfoPanel(forge){
   document.getElementById('infoPath').textContent=pathStr||'\u2014';
 
   document.getElementById('infoGlyphs').textContent=forge.chaosGlyphs.join('  ')||'\u2014';
-
-
 }
 
 function doForge(){
@@ -1369,11 +1351,6 @@ function doForge(){
   resolutionSlider.disabled=true;
   updateForgeProgress(0,'Beginning the forge\u2026');
   forgeProgress.classList.add('active');
-  // Snap to the canvas immediately. The canvas is now the first element
-  // in the stage, and everything that reveals itself as the forge
-  // completes (glyphs, info panel, actions) lives below it, so nothing
-  // above the canvas changes size — the page won't jump again once
-  // forging ends.
   canvasWrap.scrollIntoView({ behavior: 'auto', block: 'center' });
 
   const ready=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();
@@ -1383,14 +1360,10 @@ function doForge(){
       currentForge=new SigilForge(phrase,imgSize);
       currentSigil=await currentForge.render((frac,label)=>updateForgeProgress(frac,label));
 
-      const dpr=window.devicePixelRatio||1;
-      const rect=canvasWrap.getBoundingClientRect();
-      sigilCanvas.width=Math.round(rect.width*dpr);
-      sigilCanvas.height=Math.round(rect.height*dpr);
-      const ctx=sigilCanvas.getContext('2d');
-      ctx.imageSmoothingEnabled=true;
-      ctx.imageSmoothingQuality='high';
-      ctx.drawImage(currentSigil,0,0,sigilCanvas.width,sigilCanvas.height);
+      // PATCH: write full-res data URL into img.src so right-click → Save Image
+      // gives the full resolution, not the CSS-scaled display size.
+      sigilCanvas.src=currentSigil.toDataURL('image/png');
+      sigilCanvas.style.display='block';
 
       updateInfoPanel(currentForge);
 
@@ -1446,8 +1419,9 @@ copyBtn.addEventListener('click',async ()=>{
 newBtn.addEventListener('click',()=>{
   phraseInput.value='';
   phraseInput.focus();
-  const ctx=sigilCanvas.getContext('2d');
-  ctx.clearRect(0,0,sigilCanvas.width,sigilCanvas.height);
+  // PATCH: clear img src instead of canvas context
+  sigilCanvas.src='';
+  sigilCanvas.style.display='none';
   placeholder.classList.remove('hidden');
   actions.classList.remove('visible');
   infoPanel.classList.remove('visible');
