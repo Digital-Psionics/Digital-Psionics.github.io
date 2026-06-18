@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta property="og:title" content="Digital Psionics">
+  <meta property="og:description" content="Building tools at the intersection of code and the occult.">
+  <meta property="og:type" content="website">
+  <meta property="og:url" content="https://Digital-Psionics.github.io/">
+  <meta property="og:image" content="https://Digital-Psionics.github.io/preview.png">
+
+  <!-- Twitter/X (also used by some embeds) -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Digital-Psionics">
+  <meta name="twitter:description" content="Building tools at the intersection of code and the occult.">
+  <meta name="twitter:image" content="https://Digital-Psionics.github.io/preview.png">
+
+  <!-- Favicon (shows in browser tabs, sometimes in previews) -->
+  <link rel="icon" type="image/png" href="/favicon.png">
+
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Digital Psionics</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,600;1,300&family=Inter:wght@300;400&family=Cinzel:wght@400&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:       #020206;
+      --surface:  #09091a;
+      --crimson:  #AF0820;
+      --pale:     #D2C8EB;
+      --muted:    #7A6E99;
+      --border:   #1a1533;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--pale);
+      font-family: 'Inter', sans-serif;
+      font-weight: 300;
+      min-height: 100vh;
+    }
+
+    /* ── Hero ─────────────────────────────────────────── */
+    .hero {
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 2rem;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Signature element: a barely-visible rotating alchemical circle */
+    .ambient {
+      position: absolute;
+      width: min(560px, 90vw);
+      height: min(560px, 90vw);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.1;
+      animation: slowSpin 120s linear infinite, symbolGlow 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+    @keyframes slowSpin {
+      to { transform: translate(-50%, -50%) rotate(360deg); }
+    }
+    @keyframes slowSpinReverse {
+      to { transform: translate(-50%, -50%) rotate(-360deg); }
+    }
+    .ambient-reverse {
+      position: absolute;
+      width: min(560px, 90vw);
+      height: min(560px, 90vw);
+      top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0.1;
+      animation: slowSpinReverse 120s linear infinite, symbolGlow 4s ease-in-out infinite;
+      pointer-events: none;
+    }
+
+    .eyebrow {
+      font-family: 'Cinzel', serif;
+      font-size: 0.62rem;
+      letter-spacing: 0.38em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      margin-bottom: 1.75rem;
+    }
+
+    h1 {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(3.8rem, 11vw, 7.5rem);
+      color: var(--pale);
+      letter-spacing: 0.07em;
+      line-height: 1;
+      margin-bottom: 1.5rem;
+    }
+
+    .bio {
+      font-family: 'Cormorant Garamond', serif;
+      font-style: italic;
+      font-weight: 300;
+      font-size: clamp(1rem, 2.5vw, 1.2rem);
+      color: var(--muted);
+      max-width: 400px;
+      line-height: 1.75;
+    }
+
+
+
+    .scroll-cue {
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1px;
+      height: 52vh;
+      pointer-events: none;
+    }
+    .scroll-line {
+      width: 1px;
+      height: 100%;
+      background: transparent;
+      position: relative;
+    }
+    .scroll-line::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 1.5px;
+      height: 28px;
+      border-radius: 2px;
+      background: linear-gradient(to top, transparent, rgba(175,8,32,0.4), rgba(220,30,40,0.85));
+      animation: beadRise 4s linear infinite,
+                 beadFade 4s ease infinite;
+    }
+	@keyframes beadRise {
+	  0%   { bottom: -5px; }
+	  50%  { bottom: calc(50vh - 28px); }
+	  100% { bottom: calc(50vh - 28px); }
+	}
+
+	@keyframes beadFade {
+	  0%   { opacity: 0; }
+	  8%   { opacity: 1; }
+	  50%  { opacity: 1; }
+	  60%  { opacity: 0; }
+	  100% { opacity: 0; }
+	}
+
+	@keyframes symbolGlow {
+	  0%, 49% {
+		opacity: 0.055;
+		filter: drop-shadow(0 0 0px rgba(140,8,28,0));
+	  }
+	  50% {
+		opacity: 0.3;
+		filter: drop-shadow(0 0 6px rgba(140,8,28,0.8)) drop-shadow(0 0 13px rgba(140,8,28,0.4));
+	  }
+	  90% {
+		opacity: 0.3;
+		filter: drop-shadow(0 0 6px rgba(140,8,28,0.8)) drop-shadow(0 0 13px rgba(140,8,28,0.4));
+	  }
+	  100% {
+		opacity: 0.055;
+		filter: drop-shadow(0 0 0px rgba(140,8,28,0));
+	  }
+	}
+    /* ── Works ────────────────────────────────────────── */
+    .works {
+      max-width: 780px;
+      margin: 0 auto;
+      padding: 6rem 2rem 9rem;
+    }
+
+    .section-label {
+      font-family: 'Cinzel', serif;
+      font-size: 0.6rem;
+      letter-spacing: 0.35em;
+      text-transform: uppercase;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+    .section-label::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+
+    /* Project card */
+    .project-card {
+      display: block;
+      text-decoration: none;
+      color: inherit;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 2.25rem 2.75rem;
+      background: var(--surface);
+      position: relative;
+      overflow: hidden;
+      transition: border-color 0.35s, background 0.35s;
+    }
+    .project-card::before {
+      content: '';
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, rgba(175,8,32,0.5), transparent);
+      opacity: 0;
+      transition: opacity 0.35s;
+    }
+    .project-card:hover { border-color: rgba(175,8,32,0.28); background: #0c0c20; }
+    .project-card:hover::before { opacity: 1; }
+
+    .project-card:focus-visible {
+      outline: 2px solid var(--crimson);
+      outline-offset: 4px;
+    }
+
+    .project-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 1.1rem;
+    }
+    .tag {
+      font-family: 'Cinzel', serif;
+      font-size: 0.57rem;
+      letter-spacing: 0.2em;
+      text-transform: uppercase;
+      color: var(--crimson);
+      border: 1px solid rgba(175,8,32,0.35);
+      padding: 3px 11px;
+      border-radius: 3px;
+    }
+    .year {
+      font-size: 0.72rem;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .project-title {
+      font-family: 'Cormorant Garamond', serif;
+      font-weight: 300;
+      font-size: clamp(2rem, 5vw, 2.8rem);
+      color: var(--pale);
+      letter-spacing: 0.04em;
+      line-height: 1.05;
+      margin-bottom: 0.85rem;
+    }
+    .project-desc {
+      font-size: 0.875rem;
+      color: var(--muted);
+      line-height: 1.8;
+      max-width: 540px;
+    }
+    .project-arrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 1.75rem;
+      font-family: 'Cinzel', serif;
+      font-size: 0.62rem;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--pale);
+      opacity: 0.4;
+      transition: opacity 0.3s;
+    }
+    .project-arrow span {
+      display: inline-block;
+      transition: transform 0.3s;
+    }
+    .project-card:hover .project-arrow { opacity: 1; }
+    .project-card:hover .project-arrow span { transform: translateX(5px); }
+
+    /* ── Footer ───────────────────────────────────────── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 2rem;
+      text-align: center;
+      font-family: 'Cinzel', serif;
+      font-size: 0.58rem;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: #28224a;
+    }
+
+    @media (max-width: 560px) {
+      .project-card { padding: 1.5rem 1.25rem; }
+      .works { padding: 4rem 1.25rem 6rem; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .ambient, .ambient-reverse, .scroll-line, .scroll-line::before { animation: none; }
+    }
+  </style>
+<base target="_blank">
+</head>
+<body>
+
+<section class="hero" aria-label="Introduction">
+
+  <!-- Metatron's Cube — generated by script below -->
+  <svg id="metatron" class="ambient" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+  <script>
+    (function () {
+      const svg = document.getElementById('metatron');
+      const NS  = 'http://www.w3.org/2000/svg';
+      const CX  = 250, CY = 250, R = 75;
+
+      function el(tag, attrs) {
+        const e = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+        return e;
+      }
+
+      // 13 Fruit-of-Life centres: 1 + 6 inner + 6 outer
+      const pts = [[CX, CY]];
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        pts.push([CX + R * Math.cos(a), CY + R * Math.sin(a)]);
+      }
+      for (let i = 0; i < 6; i++) {
+        const a = i * Math.PI / 3;
+        pts.push([CX + 2 * R * Math.cos(a), CY + 2 * R * Math.sin(a)]);
+      }
+
+      // Outer bounding ring
+      svg.appendChild(el('circle', { cx: CX, cy: CY, r: 237, stroke: 'white', 'stroke-width': '0.9', fill: 'none' }));
+
+      // 13 circles (one per centre)
+      for (const [x, y] of pts) {
+        svg.appendChild(el('circle', { cx: x.toFixed(2), cy: y.toFixed(2), r: R, stroke: 'white', 'stroke-width': '0.55', fill: 'none' }));
+      }
+
+      // Lines connecting every pair of centres (78 lines total)
+      for (let i = 0; i < pts.length; i++) {
+        for (let j = i + 1; j < pts.length; j++) {
+          svg.appendChild(el('line', {
+            x1: pts[i][0].toFixed(2), y1: pts[i][1].toFixed(2),
+            x2: pts[j][0].toFixed(2), y2: pts[j][1].toFixed(2),
+            stroke: 'white', 'stroke-width': '0.45'
+          }));
+        }
+      }
+
+    })();
+  </script>
+
+  <!-- Pentagram — counter-rotating, separate SVG -->
+  <svg id="pentagram" class="ambient-reverse" viewBox="0 0 500 500" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"></svg>
+  <script>
+    (function () {
+      const svg = document.getElementById('pentagram');
+      const NS  = 'http://www.w3.org/2000/svg';
+      const CX  = 250, CY = 250, PR = 225;
+
+      function el(tag, attrs) {
+        const e = document.createElementNS(NS, tag);
+        for (const [k, v] of Object.entries(attrs)) e.setAttribute(k, v);
+        return e;
+      }
+
+      const pts = Array.from({length: 5}, (_, i) => {
+        const a = -Math.PI / 2 + i * 2 * Math.PI / 5;
+        return [CX + PR * Math.cos(a), CY + PR * Math.sin(a)];
+      });
+      const order = [0, 2, 4, 1, 3, 0];
+      for (let i = 0; i < order.length - 1; i++) {
+        svg.appendChild(el('line', {
+          x1: pts[order[i]][0].toFixed(2),   y1: pts[order[i]][1].toFixed(2),
+          x2: pts[order[i+1]][0].toFixed(2), y2: pts[order[i+1]][1].toFixed(2),
+          stroke: 'white', 'stroke-width': '0.9'
+        }));
+      }
+    })();
+  </script>
+
+  <p class="eyebrow">Works &amp; Experiments</p>
+  <h1>Digital Psionics</h1>
+  <p class="bio">Building tools at the intersection of code and the occult. Some useful, some strange.</p>
+
+  <div class="scroll-cue" aria-hidden="true">
+    <div class="scroll-line"></div>
+  </div>
+</section>
+
+<main class="works">
+  <div class="section-label">Projects</div>
+
+  <!-- Sigil Forge — update href to match your actual path -->
+  <a href="works/sigil_forge.html" class="project-card">
+    <div class="project-meta">
+      <span class="tag">Generator</span>
+    </div>
+    <h2 class="project-title">Sigil Forge</h2>
+    <p class="project-desc">
+      A chaos magic sigil generator. Enter an intention, receive a unique geometric glyph
+      derived deterministically from your phrase. Consonants mapped to celestial symbols,
+      geometry seeded by the words themselves.
+    </p>
+    <div class="project-arrow">Open project <span>→</span></div>
+  </a>
+
+  <!-- Duplicate the card above for future projects -->
+
+
+</main>
+
+<footer>
+  <span>Digital Psionics ∴ github.io</span>
+</footer>
+
+</body>
+</html>
