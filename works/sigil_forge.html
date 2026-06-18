@@ -241,6 +241,22 @@
 </section>
 
 <section class="stage">
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="shimmer" id="shimmer"></div>
+    <div class="forge-progress" id="forgeProgress">
+      <div class="forge-progress-label" id="forgeProgressLabel">Beginning the forge&hellip;</div>
+      <div class="forge-progress-track">
+        <div class="forge-progress-fill" id="forgeProgressFill"></div>
+      </div>
+      <div class="forge-progress-pct" id="forgeProgressPct">0%</div>
+    </div>
+    <div class="canvas-placeholder" id="placeholder">
+      <div class="orb"></div>
+      <span>Enter an intention and press Forge</span>
+    </div>
+    <canvas id="sigilCanvas"></canvas>
+  </div>
+
   <div class="glyph-preview" id="glyphPreview"></div>
 
   <div class="info-panel" id="infoPanel">
@@ -260,22 +276,6 @@
       </div>
 
     </div>
-  </div>
-
-  <div class="canvas-wrap" id="canvasWrap">
-    <div class="shimmer" id="shimmer"></div>
-    <div class="forge-progress" id="forgeProgress">
-      <div class="forge-progress-label" id="forgeProgressLabel">Beginning the forge&hellip;</div>
-      <div class="forge-progress-track">
-        <div class="forge-progress-fill" id="forgeProgressFill"></div>
-      </div>
-      <div class="forge-progress-pct" id="forgeProgressPct">0%</div>
-    </div>
-    <div class="canvas-placeholder" id="placeholder">
-      <div class="orb"></div>
-      <span>Enter an intention and press Forge</span>
-    </div>
-    <canvas id="sigilCanvas"></canvas>
   </div>
 
   <div class="actions" id="actions">
@@ -1369,10 +1369,12 @@ function doForge(){
   resolutionSlider.disabled=true;
   updateForgeProgress(0,'Beginning the forge\u2026');
   forgeProgress.classList.add('active');
-  // Scroll to canvas immediately so progress bar is visible
-  setTimeout(() => {
-    canvasWrap.scrollIntoView({ behavior: 'smooth', block: 'center' });
-  }, 50);
+  // Snap to the canvas immediately. The canvas is now the first element
+  // in the stage, and everything that reveals itself as the forge
+  // completes (glyphs, info panel, actions) lives below it, so nothing
+  // above the canvas changes size — the page won't jump again once
+  // forging ends.
+  canvasWrap.scrollIntoView({ behavior: 'auto', block: 'center' });
 
   const ready=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();
   ready.then(()=>new Promise(res=>setTimeout(res,100))).then(async ()=>{
