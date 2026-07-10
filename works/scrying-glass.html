@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>The Scrying Glass — A Quantum Oracle</title>
+<meta name="description" content="A living fractal fed by real quantum randomness from the ANU Quantum RNG, rendered as a scrying glass.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;600;700&family=Cinzel+Decorative:wght@700&family=EB+Garamond:ital,wght@0,400;0,500;1,400&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<style>
+    :root{
+        --void:#050406;
+        --void-deep:#020202;
+        --parchment:#cdbfa0;
+        --parchment-dim:#8f8570;
+        --gold:#b8944c;
+        --gold-bright:#e6c876;
+        --blood:#6e1423;
+        --violet:#2c1a3d;
+        --violet-bright:#5b3d7a;
+        --hairline: rgba(184,148,76,0.35);
+    }
+    *{box-sizing:border-box;}
+    html,body{margin:0;padding:0;height:100%;background:var(--void);overflow:hidden;
+        font-family:'EB Garamond', serif; color:var(--parchment);}
+    #canvas-container{position:fixed;inset:0;width:100vw;height:100vh;display:block;}
+    canvas{display:block;}
+
+    /* atmospheric overlay: vignette + grain */
+    #atmosphere{
+        position:fixed;inset:0;pointer-events:none;z-index:5;
+        background:radial-gradient(ellipse at center, rgba(0,0,0,0) 40%, rgba(0,0,0,0.55) 100%);
+    }
+    #grain{
+        position:fixed;inset:0;pointer-events:none;z-index:6;opacity:0.05;mix-blend-mode:overlay;
+        background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)'/></svg>");
+        background-size:180px 180px;
+    }
+    #sigil-flash{
+        position:fixed;inset:0;pointer-events:none;z-index:7;
+        background:radial-gradient(ellipse at center, rgba(230,200,118,0.16) 0%, rgba(230,200,118,0) 60%);
+        opacity:0;transition:opacity 1.8s ease-in-out;
+    }
+
+    /* mark / title */
+    #mark{
+        position:fixed;top:26px;left:30px;z-index:20;
+        font-family:'Cinzel Decorative', serif;
+        font-size:13px;letter-spacing:3px;color:var(--gold);
+        text-transform:uppercase;
+        display:flex;align-items:center;gap:10px;
+        pointer-events:none;
+        text-shadow:0 0 12px rgba(184,148,76,0.5);
+        opacity:0;
+        transition:opacity 1.6s ease;
+    }
+    #mark.visible{opacity:1;transition:opacity .5s ease;}
+    #mark svg{width:20px;height:20px;flex-shrink:0;}
+    #mark .sub{
+        display:block;font-family:'EB Garamond',serif;font-style:italic;
+        font-size:11px;letter-spacing:1px;color:var(--parchment-dim);
+        text-transform:none;margin-top:2px;
+    }
+
+    /* toggle */
+    #toggle{
+        position:fixed;top:22px;right:26px;z-index:30;
+        width:46px;height:46px;border-radius:50%;
+        border:1px solid var(--hairline);
+        background:rgba(5,4,6,0.55);backdrop-filter:blur(6px);
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;transition:all .35s ease;
+    }
+    #toggle:hover{background:rgba(184,148,76,0.12);box-shadow:0 0 18px rgba(184,148,76,0.25);}
+    #toggle svg{width:22px;height:22px;stroke:var(--gold);fill:none;stroke-width:1.2;
+        transition:transform 1.2s ease;}
+    #toggle.open svg{transform:rotate(135deg);}
+
+    /* panel */
+    #grimoire{
+        position:fixed;top:0;right:0;height:100%;width:340px;max-width:88vw;z-index:25;
+        background:linear-gradient(180deg, rgba(8,6,10,0.94), rgba(5,4,6,0.97));
+        border-left:1px solid var(--hairline);
+        padding:100px 28px 28px;
+        display:flex;flex-direction:column;gap:26px;
+        transform:translateX(100%);
+        transition:transform .5s cubic-bezier(.16,1,.3,1);
+        overflow-y:auto;
+    }
+    #grimoire.open{transform:translateX(0);}
+
+    .panel-title{
+        font-family:'Cinzel',serif;font-size:12px;letter-spacing:2.5px;
+        color:var(--gold-bright);text-transform:uppercase;margin:0 0 10px;
+        border-bottom:1px solid var(--hairline);padding-bottom:8px;
+    }
+
+    #status-row{display:flex;align-items:center;gap:10px;font-size:13px;letter-spacing:0.4px;}
+    #status-dot{width:8px;height:8px;border-radius:50%;background:var(--violet-bright);
+        box-shadow:0 0 8px var(--violet-bright);transition:all .6s ease;flex-shrink:0;}
+    #status-dot.quantum{background:var(--gold-bright);box-shadow:0 0 10px var(--gold-bright);}
+    #status-text{color:var(--parchment-dim);font-style:italic;}
+    #status-text b{color:var(--parchment);font-style:normal;font-weight:600;}
+
+    #ticker-frame{
+        border:1px solid var(--hairline);padding:12px 14px;background:rgba(0,0,0,0.3);
+        border-radius:2px;
+    }
+    #ticker{
+        font-family:'Space Mono',monospace;font-size:11px;line-height:1.7;
+        color:var(--gold);word-break:break-all;
+        max-height:74px;overflow:hidden;opacity:0.85;
+    }
+
+    .reading{margin-bottom:14px;}
+    .reading:last-child{margin-bottom:0;}
+    .reading-label{
+        display:flex;justify-content:space-between;font-size:10.5px;
+        letter-spacing:1.5px;text-transform:uppercase;color:var(--parchment-dim);
+        margin-bottom:6px;
+    }
+    .reading-label span.val{font-family:'Space Mono',monospace;color:var(--parchment);letter-spacing:0;}
+    .reading-bar{height:2px;background:rgba(255,255,255,0.08);border-radius:1px;overflow:hidden;}
+    .reading-fill{height:100%;background:linear-gradient(90deg, var(--blood), var(--gold));
+        width:0%;transition:width 1.4s cubic-bezier(.4,0,.2,1);}
+
+    .rite-buttons{display:flex;gap:10px;margin-top:4px;}
+    .rite-btn{
+        flex:1;background:transparent;border:1px solid var(--hairline);color:var(--parchment);
+        font-family:'Cinzel',serif;font-size:10.5px;letter-spacing:1.5px;text-transform:uppercase;
+        padding:12px 6px;cursor:pointer;transition:all .3s ease;border-radius:2px;
+    }
+    .rite-btn:hover{background:rgba(184,148,76,0.12);border-color:var(--gold);color:var(--gold-bright);}
+    .rite-btn.active{background:rgba(110,20,35,0.25);border-color:var(--blood);color:#e8a0a8;}
+
+    .slider-row{margin-bottom:18px;}
+    .slider-row:last-child{margin-bottom:0;}
+    .slider-label{display:flex;justify-content:space-between;font-size:10.5px;
+        letter-spacing:1.5px;text-transform:uppercase;color:var(--parchment-dim);margin-bottom:9px;}
+    .slider-label span.val{font-family:'Space Mono',monospace;color:var(--gold-bright);letter-spacing:0;}
+    input[type=range]{
+        -webkit-appearance:none;appearance:none;width:100%;height:2px;
+        background:rgba(255,255,255,0.12);border-radius:1px;outline:none;margin:0;
+    }
+    input[type=range]::-webkit-slider-thumb{
+        -webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;
+        background:var(--gold-bright);border:1px solid var(--gold);cursor:pointer;
+        box-shadow:0 0 8px rgba(230,200,118,0.5);transition:transform .2s ease;
+    }
+    input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.15);}
+    input[type=range]::-moz-range-thumb{
+        width:14px;height:14px;border-radius:50%;background:var(--gold-bright);
+        border:1px solid var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(230,200,118,0.5);
+    }
+    input[type=range]::-moz-range-track{height:2px;background:rgba(255,255,255,0.12);border-radius:1px;}
+
+    #colophon{
+        font-size:11.5px;line-height:1.6;color:var(--parchment-dim);font-style:italic;
+        border-top:1px solid var(--hairline);padding-top:16px;margin-top:auto;
+    }
+    #colophon a{color:var(--gold);text-decoration:none;border-bottom:1px dotted var(--gold);}
+
+    ::-webkit-scrollbar{width:6px;}
+    ::-webkit-scrollbar-thumb{background:var(--hairline);border-radius:3px;}
+</style>
+</head>
+<body>
+
+<div id="canvas-container"></div>
+<div id="atmosphere"></div>
+<div id="grain"></div>
+<div id="sigil-flash"></div>
+
+<div id="mark">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="1"/><path d="M12 3 L12 21 M3 12 L21 12" stroke="currentColor" stroke-width="0.6"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
+    <div>THE SCRYING GLASS<span class="sub">an oracle rendered in light</span></div>
+</div>
+
+<div id="toggle">
+    <svg viewBox="0 0 24 24"><path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z"/></svg>
+</div>
+
+<div id="grimoire">
+    <div>
+        <div class="panel-title">The Source</div>
+        <div id="status-row">
+            <div id="status-dot"></div>
+            <div id="status-text">Seeking the oracle&hellip;</div>
+        </div>
+    </div>
+
+    <div>
+        <div class="panel-title">Entropy Stream</div>
+        <div id="ticker-frame"><div id="ticker">— — — —</div></div>
+    </div>
+
+    <div>
+        <div class="panel-title">The Reading</div>
+        <div class="reading">
+            <div class="reading-label"><span>Depth of Vision</span><span class="val" id="r-level">—</span></div>
+            <div class="reading-bar"><div class="reading-fill" id="f-level"></div></div>
+        </div>
+        <div class="reading">
+            <div class="reading-label"><span>Sigil Symmetry</span><span class="val" id="r-sym">—</span></div>
+            <div class="reading-bar"><div class="reading-fill" id="f-sym"></div></div>
+        </div>
+        <div class="reading">
+            <div class="reading-label"><span>Flow of the Aether</span><span class="val" id="r-speed">—</span></div>
+            <div class="reading-bar"><div class="reading-fill" id="f-speed"></div></div>
+        </div>
+        <div class="reading">
+            <div class="reading-label"><span>Luminance</span><span class="val" id="r-lum">—</span></div>
+            <div class="reading-bar"><div class="reading-fill" id="f-lum"></div></div>
+        </div>
+        <div class="reading">
+            <div class="reading-label"><span>Form</span><span class="val" id="r-form">—</span></div>
+            <div class="reading-bar"><div class="reading-fill" id="f-form"></div></div>
+        </div>
+    </div>
+
+    <div>
+        <div class="panel-title">Attunement</div>
+        <div class="slider-row">
+            <div class="slider-label"><span>Speed of Change</span><span class="val" id="v-speed">1.0×</span></div>
+            <input type="range" id="s-speed" min="0.2" max="2.0" step="0.05" value="1">
+        </div>
+    </div>
+
+    <div>
+        <div class="panel-title">Rite</div>
+        <div class="rite-buttons">
+            <button class="rite-btn" id="btn-cast">Cast Anew</button>
+            <button class="rite-btn" id="btn-hold">Hold Vision</button>
+        </div>
+    </div>
+
+    <div id="colophon">
+        Colors and forms are drawn live from <a href="https://qrandom.io" target="_blank" rel="noopener">qrandom.io</a>, a quantum random number service. When the oracle cannot be reached, the glass draws instead on your browser's own cryptographic entropy — the visions continue, but the source is disclosed above.
+    </div>
+</div>
+
+<!-- SHADER CODE -->
+<script id="vertexShader" type="x-shader/x-vertex">
+    varying vec2 vUv;
+    void main() {
+        vUv = uv;
+        gl_Position = vec4( position, 1.0 );
+    }
+</script>
+
+<script id="fragmentShader" type="x-shader/x-fragment">
+    uniform float uTime;
+    uniform vec2 uResolution;
+    uniform float uLevel;
+    uniform float uSpeed;
+    uniform float uSymmetry;
+    uniform float uIntensity;
+    uniform float uIterations;
+    uniform float uNegative;
+    uniform float uAberration;
+    uniform float uHueShift;
+
+    varying vec2 vUv;
+
+    #define PI 3.14159265359
+
+    float random(vec2 st) {
+        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+    }
+
+    // Occult palette: biased toward gold / blood-crimson / deep violet rather than full rainbow
+    vec3 palette( float t ) {
+        vec3 a = vec3(0.55, 0.35, 0.40);
+        vec3 b = vec3(0.45, 0.35, 0.45);
+        vec3 c = vec3(1.2, 1.0, 1.3);
+        vec3 d = vec3(0.0, 0.10, 0.30);
+        return a + b*cos( 6.28318*(c*t+d) );
+    }
+
+    vec3 getFractal(vec2 uv, float level, float sym, float iterStyle) {
+        vec2 uv0 = uv;
+
+        if (iterStyle >= 3.0) {
+            uv += sin(uv.yx * 4.0 + uTime * uSpeed) * 0.05;
+        }
+
+        float iterations = 1.0 + (level - 2.0) * 0.8;
+
+        vec3 fractalColor = vec3(0.0);
+
+        for (float i = 0.0; i < 8.0; i++) {
+            if (i >= iterations) break;
+
+            float angle = atan(uv.y, uv.x);
+            float radius = length(uv);
+
+            float slice = (2.0 * PI) / sym;
+            angle = mod(angle, slice);
+            angle = abs(angle - slice * 0.5);
+
+            uv = vec2(cos(angle), sin(angle)) * radius;
+
+            uv = abs(uv) - 0.5;
+            uv *= 1.2;
+
+            float t = uTime * uSpeed * 0.2;
+            float s = sin(t + i*0.5);
+            float c = cos(t + i*0.5);
+            uv *= mat2(c, -s, s, c);
+
+            float d = length(uv) * exp(-length(uv0));
+            vec3 col = palette(length(uv0) + i*.4 + uTime*.4 * uSpeed + uHueShift);
+
+            float glow = sin(d*8. + uTime * uSpeed)/8.;
+            glow = abs(glow);
+            glow = pow(0.01 / glow, 1.2);
+
+            if (iterStyle >= 2.0) {
+                float laser = 0.02 / abs(sin(d * 20.0 + uTime * uSpeed * 1.2));
+                glow += laser * 0.5;
+            }
+
+            fractalColor += col * glow;
+        }
+        return fractalColor;
+    }
+
+    void main() {
+        float level = (uLevel - 1.0) * (8.0 / 7.0);
+
+        vec2 uv = (gl_FragCoord.xy * 2.0 - uResolution.xy) / uResolution.y;
+        vec2 uv0 = uv;
+        vec3 finalColor = vec3(0.0);
+
+        if (level < 2.5) {
+            float noise = random(uv + uTime * uSpeed * 0.5);
+
+            float phos = 0.0;
+            for(float i=0.0; i<3.0; i++){
+                uv += vec2(0.7 / (i+1.0), 0.3 / (i+1.0));
+                float t = uTime * uSpeed * 0.5;
+                phos += sin(uv.x * (3.0 + i) + t) * sin(uv.y * (3.0 + i) + t);
+            }
+
+            vec3 phosColor = palette(phos * 0.2 + uTime * 0.1 + uHueShift);
+
+            float noiseMix = smoothstep(1.5, 0.0, level);
+            float phosMix = smoothstep(0.5, 2.0, level);
+
+            finalColor = vec3(noise * 0.15 * noiseMix) + phosColor * phosMix * 0.5;
+        }
+
+        if (level > 1.5) {
+            vec3 fractalColor = vec3(0.0);
+
+            if (uAberration > 0.5) {
+                float dist = length(uv0);
+                float aberration = dist * 0.03;
+
+                vec3 colR = getFractal(uv0 + vec2(aberration, 0.0), level, uSymmetry, uIterations);
+                vec3 colG = getFractal(uv0, level, uSymmetry, uIterations);
+                vec3 colB = getFractal(uv0 - vec2(aberration, 0.0), level, uSymmetry, uIterations);
+
+                fractalColor = vec3(colR.r, colG.g, colB.b);
+            } else {
+                fractalColor = getFractal(uv0, level, uSymmetry, uIterations);
+            }
+
+            float fractalMix = smoothstep(1.5, 2.5, level);
+            finalColor += fractalColor * fractalMix;
+        }
+
+        finalColor *= uIntensity;
+
+        vec3 negativeColor = 1.0 - finalColor;
+        finalColor = mix(finalColor, negativeColor, uNegative);
+
+        gl_FragColor = vec4(finalColor, 1.0);
+    }
+</script>
+
+<script>
+// ---------- THREE.JS SETUP ----------
+const container = document.getElementById('canvas-container');
+const scene = new THREE.Scene();
+const camera = new THREE.OrthographicCamera( -1, 1, 1, -1, 0, 1 );
+
+const renderer = new THREE.WebGLRenderer();
+renderer.setSize( window.innerWidth, window.innerHeight );
+renderer.setPixelRatio( Math.min(window.devicePixelRatio, 2) );
+container.appendChild( renderer.domElement );
+
+const uniforms = {
+    uTime: { value: 0.0 },
+    uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    uLevel: { value: 3.0 },
+    uSpeed: { value: 0.12 },
+    uSymmetry: { value: 6.0 },
+    uIntensity: { value: 1.0 },
+    uIterations: { value: 1.0 },
+    uNegative: { value: 0.0 },
+    uAberration: { value: 0.0 },
+    uHueShift: { value: 0.0 }
+};
+
+const geometry = new THREE.PlaneGeometry( 2, 2 );
+const material = new THREE.ShaderMaterial( {
+    uniforms: uniforms,
+    vertexShader: document.getElementById( 'vertexShader' ).textContent,
+    fragmentShader: document.getElementById( 'fragmentShader' ).textContent
+} );
+const plane = new THREE.Mesh( geometry, material );
+scene.add( plane );
+
+window.addEventListener( 'resize', onWindowResize, false );
+function onWindowResize() {
+    renderer.setSize( window.innerWidth, window.innerHeight );
+    uniforms.uResolution.value.x = renderer.domElement.width;
+    uniforms.uResolution.value.y = renderer.domElement.height;
+}
+
+// ---------- UI CHROME ----------
+const grimoire = document.getElementById('grimoire');
+const toggle = document.getElementById('toggle');
+const markEl = document.getElementById('mark');
+
+let markHideTimer = null;
+const MARK_IDLE_MS = 2200;
+
+function showMark() {
+    markEl.classList.add('visible');
+    clearTimeout(markHideTimer);
+    markHideTimer = null;
+}
+
+function scheduleMarkHide() {
+    clearTimeout(markHideTimer);
+    if (grimoire.classList.contains('open')) return; // stays visible while settings are open
+    markHideTimer = setTimeout(() => {
+        markEl.classList.remove('visible');
+    }, MARK_IDLE_MS);
+}
+
+toggle.addEventListener('click', () => {
+    grimoire.classList.toggle('open');
+    toggle.classList.toggle('open');
+    if (grimoire.classList.contains('open')) {
+        showMark();
+    } else {
+        scheduleMarkHide();
+    }
+});
+
+// touching / moving over the glass reveals the mark; releasing lets it fade
+['pointerdown', 'pointermove', 'touchstart', 'touchmove'].forEach(evt => {
+    window.addEventListener(evt, () => {
+        showMark();
+        scheduleMarkHide();
+    }, { passive: true });
+});
+['pointerup', 'touchend', 'touchcancel'].forEach(evt => {
+    window.addEventListener(evt, () => scheduleMarkHide(), { passive: true });
+});
+
+const statusDot = document.getElementById('status-dot');
+const statusText = document.getElementById('status-text');
+const tickerEl = document.getElementById('ticker');
+const sigilFlash = document.getElementById('sigil-flash');
+
+// ---------- ATTUNEMENT (user speed control) ----------
+let userSpeedMult = 1.0;
+const userIntensityMult = 1.0; // fixed — no longer user-adjustable
+
+const speedSlider = document.getElementById('s-speed');
+const vSpeed = document.getElementById('v-speed');
+
+speedSlider.addEventListener('input', () => {
+    userSpeedMult = parseFloat(speedSlider.value);
+    vSpeed.textContent = userSpeedMult.toFixed(2) + '×';
+});
+
+function flashSigil() {
+    const peak = Math.min(1, 0.55 * userIntensityMult);
+    sigilFlash.style.opacity = String(peak);
+    setTimeout(() => { sigilFlash.style.opacity = '0'; }, 900);
+}
+
+function setStatus(source) {
+    if (source === 'quantum') {
+        statusDot.classList.add('quantum');
+        statusText.innerHTML = 'Bound to the <b>Quantum Oracle</b> — live quantum entropy';
+    } else if (source === 'local') {
+        statusDot.classList.remove('quantum');
+        statusText.innerHTML = 'Oracle unreachable — drawing on <b>local entropy</b>';
+    } else {
+        statusDot.classList.remove('quantum');
+        statusText.innerHTML = 'Seeking the oracle&hellip;';
+    }
+}
+
+// ---------- ENTROPY SOURCES ----------
+// qrandom.io's API doesn't send an Access-Control-Allow-Origin header, so direct
+// browser fetches are blocked by CORS on file:// and probably on real hosts too.
+// We try direct first (in case that ever changes), then fall back to routing the
+// same request through a public CORS proxy (which adds the missing header for us),
+// then finally to local crypto entropy if both fail.
+async function fetchQuantumHexOnce(len) {
+    const directUrl = `https://qrandom.io/api/random/string?length=${len}&amount=1`;
+    const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(directUrl)}`;
+
+    for (const url of [directUrl, proxyUrl]) {
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 6000);
+        try {
+            const res = await fetch(url, { signal: controller.signal, cache: 'no-store' });
+            clearTimeout(timeout);
+            if (!res.ok) throw new Error('bad status ' + res.status);
+            const json = await res.json();
+            if (!json || !json.string || !json.string.length || !json.string[0]) throw new Error('empty/failed payload');
+            return json.string[0];
+        } catch (e) {
+            clearTimeout(timeout);
+            // try the next url (proxy) before giving up
+        }
+    }
+    throw new Error('both direct and proxied requests failed');
+}
+
+async function fetchQuantumHex(len = 128, attempts = 1) {
+    let lastErr;
+    for (let i = 0; i < attempts; i++) {
+        try {
+            return await fetchQuantumHexOnce(len);
+        } catch (e) {
+            lastErr = e;
+            if (i < attempts - 1) await new Promise(r => setTimeout(r, 400));
+        }
+    }
+    throw lastErr;
+}
+
+function localEntropyHex(len = 128) {
+    const bytes = new Uint8Array(len);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+// ---------- TARGET STATE (what the shader lerps toward) ----------
+const target = {
+    level: 3.0, symmetry: 6, speed: 0.12, intensity: 1.0, iterations: 1, aberration: 0, hueShift: 0
+};
+
+function byteAt(bytes, i) { return bytes[i % bytes.length]; }
+
+function applyHex(hex) {
+    tickerEl.textContent = hex;
+
+    const bytes = [];
+    for (let i = 0; i + 1 < hex.length; i += 2) bytes.push(parseInt(hex.substr(i, 2), 16));
+    if (bytes.length < 8) return;
+
+    const b = (i) => byteAt(bytes, i);
+
+    target.level      = 1.0 + (b(0) / 255) * 7.0;               // 1 - 8
+    target.symmetry   = 2 + Math.floor((b(1) / 255) * 22);      // 2 - 24
+    target.speed       = 0.03 + (b(2) / 255) * 0.19;             // 0.03 - 0.22 (calm base drift)
+    target.intensity  = 0.6 + (b(3) / 255) * 0.7;                 // 0.6 - 1.3
+    target.iterations = 1 + Math.floor((b(4) / 255) * 2.999);   // 1 - 3
+    target.aberration = b(5) > 150 ? 1.0 : 0.0;
+    target.hueShift   = (b(6) / 255) * Math.PI * 8;               // wraps several cycles
+
+    updateReadingsUI();
+    flashSigil();
+}
+
+function updateReadingsUI() {
+    document.getElementById('r-level').textContent = target.level.toFixed(2);
+    document.getElementById('f-level').style.width = ((target.level - 1) / 7 * 100) + '%';
+
+    document.getElementById('r-sym').textContent = target.symmetry;
+    document.getElementById('f-sym').style.width = ((target.symmetry - 2) / 22 * 100) + '%';
+
+    document.getElementById('r-speed').textContent = target.speed.toFixed(2);
+    document.getElementById('f-speed').style.width = ((target.speed - 0.03) / 0.19 * 100) + '%';
+
+    document.getElementById('r-lum').textContent = target.intensity.toFixed(2);
+    document.getElementById('f-lum').style.width = ((target.intensity - 0.6) / 0.7 * 100) + '%';
+
+    const forms = ['—', 'Glow', 'Laser', 'Wave'];
+    document.getElementById('r-form').textContent = forms[target.iterations] || target.iterations;
+    document.getElementById('f-form').style.width = (target.iterations / 3 * 100) + '%';
+}
+
+// ---------- POLLING LOOP ----------
+let holding = false;
+let pollTimer = null;
+const POLL_INTERVAL_MS = 15000;
+
+async function refreshEntropy() {
+    if (holding) return;
+    try {
+        const hex = await fetchQuantumHex(128);
+        setStatus('quantum');
+        applyHex(hex);
+    } catch (e) {
+        console.warn('[Scrying Glass] quantum source failed, falling back to local entropy:', e);
+        setStatus('local');
+        applyHex(localEntropyHex(128));
+    }
+}
+
+function startPolling() {
+    refreshEntropy();
+    pollTimer = setInterval(refreshEntropy, POLL_INTERVAL_MS);
+}
+startPolling();
+
+// ---------- RITE BUTTONS ----------
+document.getElementById('btn-cast').addEventListener('click', () => {
+    if (!holding) refreshEntropy();
+});
+
+const holdBtn = document.getElementById('btn-hold');
+holdBtn.addEventListener('click', () => {
+    holding = !holding;
+    holdBtn.classList.toggle('active', holding);
+    holdBtn.textContent = holding ? 'Release' : 'Hold Vision';
+});
+
+// ---------- ANIMATION LOOP ----------
+const clock = new THREE.Clock();
+const BASE_LERP = 0.004; // gradual drift by default; Speed slider scales this
+const MAX_SHADER_SPEED = 0.22; // hard cap so the kaleidoscope motion never races, even with the slider maxed
+
+// tracked "current" values, independent of the multiplier applied to the shader
+// uniforms — this avoids the speed slider compounding frame over frame
+const current = {
+    level: uniforms.uLevel.value,
+    symmetry: uniforms.uSymmetry.value,
+    speed: uniforms.uSpeed.value,
+    intensity: uniforms.uIntensity.value,
+    iterations: uniforms.uIterations.value,
+    aberration: uniforms.uAberration.value,
+    hueShift: uniforms.uHueShift.value
+};
+
+function animate() {
+    requestAnimationFrame(animate);
+    const time = clock.getElapsedTime();
+    uniforms.uTime.value = time;
+
+    const lerp = Math.min(BASE_LERP * userSpeedMult, 0.04);
+
+    current.level      += (target.level - current.level) * lerp;
+    current.symmetry   += (target.symmetry - current.symmetry) * lerp;
+    current.speed       += (target.speed - current.speed) * lerp;
+    current.intensity  += (target.intensity - current.intensity) * lerp;
+    current.iterations += (target.iterations - current.iterations) * lerp;
+    current.aberration += (target.aberration - current.aberration) * lerp;
+    current.hueShift   += (target.hueShift - current.hueShift) * lerp;
+
+    uniforms.uLevel.value      = current.level;
+    uniforms.uSymmetry.value   = current.symmetry;
+    uniforms.uSpeed.value      = Math.min(current.speed * userSpeedMult, MAX_SHADER_SPEED);
+    uniforms.uIntensity.value  = current.intensity * userIntensityMult;
+    uniforms.uIterations.value = current.iterations;
+    uniforms.uAberration.value = current.aberration;
+    uniforms.uHueShift.value   = current.hueShift;
+    uniforms.uNegative.value   = 0.0; // color inversion disabled — the reading stays a positive image
+
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
