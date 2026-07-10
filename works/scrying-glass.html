@@ -386,10 +386,17 @@
         vec2 uv0 = (gl_FragCoord.xy * 2.0 - uResolution.xy) / uResolution.y;
 
         vec3 colorFrom = renderPattern(uv0, uLevel0, uSpeed0, uSymmetry0, uIterations0, uIntensity0, uHueShift0, uLocalTime0);
-        vec3 colorTo   = renderPattern(uv0, uLevel1, uSpeed1, uSymmetry1, uIterations1, uIntensity1, uHueShift1, uLocalTime1);
+        vec3 finalColor = colorFrom;
 
-        float m = smoothstep(0.0, 1.0, uMix);
-        vec3 finalColor = mix(colorFrom, colorTo, m);
+        // uMix is uniform across the whole draw call, so this branch is coherent —
+        // the GPU skips the entire second pattern (and its fractal loop) whenever
+        // we're not actually mid-crossfade, which is most of the time. Rendering
+        // both layers unconditionally on every frame was the main cost driver.
+        if (uMix > 0.001) {
+            vec3 colorTo = renderPattern(uv0, uLevel1, uSpeed1, uSymmetry1, uIterations1, uIntensity1, uHueShift1, uLocalTime1);
+            float m = smoothstep(0.0, 1.0, uMix);
+            finalColor = mix(colorFrom, colorTo, m);
+        }
 
         vec3 negativeColor = 1.0 - finalColor;
         finalColor = mix(finalColor, negativeColor, uNegative);
