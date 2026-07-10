@@ -252,28 +252,13 @@
 <script id="fragmentShader" type="x-shader/x-fragment">
     uniform float uTime;
     uniform vec2 uResolution;
+    uniform float uLevel;
+    uniform float uSpeed;
+    uniform float uSymmetry;
+    uniform float uIntensity;
+    uniform float uIterations;
     uniform float uNegative;
-
-    // Two full copies of the pattern's parameters, each with its own local clock
-    // (uLocalTime0/1). Layer 0 is whatever is currently "settled"; layer 1 is the
-    // incoming pattern fading in over it. uMix crossfades between them so a new
-    // quantum reading dissolves in rather than snapping the numbers underneath
-    // the same rendered image.
-    uniform float uLevel0;
-    uniform float uLevel1;
-    uniform float uSymmetry0;
-    uniform float uSymmetry1;
-    uniform float uSpeed0;
-    uniform float uSpeed1;
-    uniform float uIntensity0;
-    uniform float uIntensity1;
-    uniform float uIterations0;
-    uniform float uIterations1;
-    uniform float uHueShift0;
-    uniform float uHueShift1;
-    uniform float uLocalTime0;
-    uniform float uLocalTime1;
-    uniform float uMix;
+    uniform float uHueShift;
 
     varying vec2 vUv;
 
@@ -292,7 +277,7 @@
         return a + b*cos( 6.28318*(c*t+d) );
     }
 
-    vec3 getFractal(vec2 uv, float level, float sym, float iterStyle, float speed, float hueShift, float t) {
+    vec3 getFractal(vec2 uv, float level, float sym, float iterStyle) {
         vec2 uv0 = uv;
 
         float iterations = 1.0 + (level - 2.0) * 0.8;
@@ -314,21 +299,21 @@
             uv = abs(uv) - 0.5;
             uv *= 1.2;
 
-            float tt = t * speed * 0.2;
-            float s = sin(tt + i*0.5);
-            float c = cos(tt + i*0.5);
+            float t = uTime * uSpeed * 0.2;
+            float s = sin(t + i*0.5);
+            float c = cos(t + i*0.5);
             uv *= mat2(c, -s, s, c);
 
             float d = length(uv) * exp(-length(uv0));
-            vec3 col = palette(length(uv0) + i*.4 + t*.4 * speed + hueShift);
+            vec3 col = palette(length(uv0) + i*.4 + uTime*.4 * uSpeed + uHueShift);
 
-            float glow = sin(d*8. + t * speed)/8.;
+            float glow = sin(d*8. + uTime * uSpeed)/8.;
             glow = abs(glow);
             glow = pow(0.01 / glow, 1.2);
 
             float laserMix = smoothstep(1.6, 2.4, iterStyle);
             if (laserMix > 0.001) {
-                float laser = 0.02 / abs(sin(d * 20.0 + t * speed * 1.2));
+                float laser = 0.02 / abs(sin(d * 20.0 + uTime * uSpeed * 1.2));
                 glow += laser * 0.5 * laserMix;
             }
 
@@ -337,27 +322,24 @@
         return fractalColor;
     }
 
-    // Renders one full "layer" of the vision from its own parameter set and its
-    // own local clock `t` (so a freshly-started copy of the same reading begins
-    // its phase at zero instead of wherever the old copy's clock had drifted to).
-    vec3 renderPattern(vec2 uv0, float levelRaw, float speed, float sym, float iterStyle, float intensity, float hueShift, float t) {
-        float level = (levelRaw - 1.0) * (8.0 / 7.0);
+    void main() {
+        float level = (uLevel - 1.0) * (8.0 / 7.0);
 
-        vec2 uv = uv0;
+        vec2 uv = (gl_FragCoord.xy * 2.0 - uResolution.xy) / uResolution.y;
+        vec2 uv0 = uv;
         vec3 finalColor = vec3(0.0);
 
         if (level < 2.5) {
-            float noise = random(uv + t * speed * 0.5);
+            float noise = random(uv + uTime * uSpeed * 0.5);
 
             float phos = 0.0;
-            vec2 puv = uv0;
             for(float i=0.0; i<3.0; i++){
-                puv += vec2(0.7 / (i+1.0), 0.3 / (i+1.0));
-                float tt = t * speed * 0.5;
-                phos += sin(puv.x * (3.0 + i) + tt) * sin(puv.y * (3.0 + i) + tt);
+                uv += vec2(0.7 / (i+1.0), 0.3 / (i+1.0));
+                float t = uTime * uSpeed * 0.5;
+                phos += sin(uv.x * (3.0 + i) + t) * sin(uv.y * (3.0 + i) + t);
             }
 
-            vec3 phosColor = palette(phos * 0.2 + t * 0.1 + hueShift);
+            vec3 phosColor = palette(phos * 0.2 + uTime * 0.1 + uHueShift);
 
             float noiseMix = smoothstep(1.5, 0.0, level);
             float phosMix = smoothstep(0.5, 2.0, level);
@@ -366,37 +348,19 @@
         }
 
         if (level > 1.5) {
-            float symFloor = max(2.0, floor(sym));
+            float symFloor = max(2.0, floor(uSymmetry));
             float symCeil = symFloor + 1.0;
-            float symBlend = smoothstep(0.0, 1.0, fract(sym));
+            float symBlend = smoothstep(0.0, 1.0, fract(uSymmetry));
 
-            vec3 colA = getFractal(uv0, level, symFloor, iterStyle, speed, hueShift, t);
-            vec3 colB = getFractal(uv0, level, symCeil, iterStyle, speed, hueShift, t);
+            vec3 colA = getFractal(uv0, level, symFloor, uIterations);
+            vec3 colB = getFractal(uv0, level, symCeil, uIterations);
             vec3 fractalColor = mix(colA, colB, symBlend);
 
             float fractalMix = smoothstep(1.5, 2.5, level);
             finalColor += fractalColor * fractalMix;
         }
 
-        finalColor *= intensity;
-        return finalColor;
-    }
-
-    void main() {
-        vec2 uv0 = (gl_FragCoord.xy * 2.0 - uResolution.xy) / uResolution.y;
-
-        vec3 colorFrom = renderPattern(uv0, uLevel0, uSpeed0, uSymmetry0, uIterations0, uIntensity0, uHueShift0, uLocalTime0);
-        vec3 finalColor = colorFrom;
-
-        // uMix is uniform across the whole draw call, so this branch is coherent —
-        // the GPU skips the entire second pattern (and its fractal loop) whenever
-        // we're not actually mid-crossfade, which is most of the time. Rendering
-        // both layers unconditionally on every frame was the main cost driver.
-        if (uMix > 0.001) {
-            vec3 colorTo = renderPattern(uv0, uLevel1, uSpeed1, uSymmetry1, uIterations1, uIntensity1, uHueShift1, uLocalTime1);
-            float m = smoothstep(0.0, 1.0, uMix);
-            finalColor = mix(colorFrom, colorTo, m);
-        }
+        finalColor *= uIntensity;
 
         vec3 negativeColor = 1.0 - finalColor;
         finalColor = mix(finalColor, negativeColor, uNegative);
@@ -419,16 +383,13 @@ container.appendChild( renderer.domElement );
 const uniforms = {
     uTime: { value: 0.0 },
     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
+    uLevel: { value: 3.0 },
+    uSpeed: { value: 0.12 },
+    uSymmetry: { value: 6.0 },
+    uIntensity: { value: 1.0 },
+    uIterations: { value: 1.0 },
     uNegative: { value: 0.0 },
-    // layer 0 = currently settled pattern, layer 1 = pattern crossfading in
-    uLevel0: { value: 3.0 }, uLevel1: { value: 3.0 },
-    uSpeed0: { value: 0.12 }, uSpeed1: { value: 0.12 },
-    uSymmetry0: { value: 6.0 }, uSymmetry1: { value: 6.0 },
-    uIntensity0: { value: 1.0 }, uIntensity1: { value: 1.0 },
-    uIterations0: { value: 1.0 }, uIterations1: { value: 1.0 },
-    uHueShift0: { value: 0.0 }, uHueShift1: { value: 0.0 },
-    uLocalTime0: { value: 0.0 }, uLocalTime1: { value: 0.0 },
-    uMix: { value: 0.0 }
+    uHueShift: { value: 0.0 }
 };
 
 const clock = new THREE.Clock();
@@ -571,64 +532,47 @@ function localEntropyHex(len = 128) {
 
 // ---------- TARGET STATE (the true reading straight from the quantum bytes) ----------
 // `target` is what's shown in the panel and is always faithful to the actual draw.
-// It's never used directly by the shader frame-to-frame any more — see the
-// crossfade layer engine below, which is what the shader actually renders.
 const target = {
     level: 3.0, symmetry: 6, speed: 0.12, intensity: 1.0, iterations: 1, hueShift: 0
 };
 
 function byteAt(bytes, i) { return bytes[i % bytes.length]; }
 
-// ---------- CROSSFADE LAYER ENGINE ----------
-// Rather than nudging the shader's numbers toward a target frame by frame (which
-// is what made a new quantum reading feel like it snapped the pattern underneath
-// itself), we keep two complete copies of the pattern's parameters — a "front"
-// layer that's fully visible at rest, and a "back" layer that dissolves in to
-// replace it. Each layer also has its own local clock, so a fresh copy of a
-// reading starts its animation phase at zero instead of wherever the old copy's
-// clock had drifted to — that's what lets one pattern visibly phase out while
-// the next visibly phases in.
-function snapshotTarget() {
-    return {
-        level: target.level, symmetry: target.symmetry, speed: target.speed,
-        intensity: target.intensity, iterations: target.iterations, hueShift: target.hueShift
+// ---------- SMOOTH TRANSITION (single pattern, eased tween) ----------
+// Only one pattern is ever rendered — no second layer, no crossfade. Instead,
+// whenever a new reading comes in, the visible parameters ease from wherever
+// they currently sit to the new target over a fixed span. Because the ease has
+// a fixed duration (rather than the old exponential decay, which only ever
+// approached the target and technically never finished), it actually settles
+// cleanly instead of snapping or drifting forever.
+const visual = { level: 3.0, symmetry: 6, speed: 0.12, intensity: 1.0, iterations: 1, hueShift: 0 };
+let tween = null; // { from, to, hueDelta, startClockTime, duration }
+
+const BASE_TWEEN_S = 3.5;  // how long an ease takes at 1.0x speed
+const MIN_TWEEN_S = 1.2;
+const MAX_TWEEN_S = 8.0;
+
+function tweenDuration() {
+    return Math.min(MAX_TWEEN_S, Math.max(MIN_TWEEN_S, BASE_TWEEN_S / userSpeedMult));
+}
+
+// Hue wraps every 2π — take the shortest angular path so a big jump in the
+// reading doesn't spin the palette through several extra full turns first.
+function shortestHueDelta(from, to) {
+    let d = (to - from) % (Math.PI * 2);
+    if (d > Math.PI) d -= Math.PI * 2;
+    if (d < -Math.PI) d += Math.PI * 2;
+    return d;
+}
+
+function beginTween(targetParams, now) {
+    tween = {
+        from: { ...visual },
+        to: { ...targetParams },
+        hueDelta: shortestHueDelta(visual.hueShift, targetParams.hueShift),
+        startClockTime: now,
+        duration: tweenDuration()
     };
-}
-
-function makeLayer(params, startClockTime) {
-    return { params, startClockTime };
-}
-
-const layers = [ makeLayer(snapshotTarget(), 0), makeLayer(snapshotTarget(), 0) ];
-let frontIdx = 0; // layers[frontIdx] is what's fully visible whenever no crossfade is running
-
-const crossfade = { active: false, startClockTime: 0 };
-let lastHoldLoopTime = 0;
-
-const BASE_CROSSFADE_S = 5.0;  // how long a full pattern crossfade takes at 1.0x speed
-const MIN_CROSSFADE_S = 1.6;
-const MAX_CROSSFADE_S = 11.0;
-
-const BASE_HOLD_LOOP_S = 9.0;  // while holding, how often the vision re-phases itself
-const MIN_HOLD_LOOP_S = 3.5;
-const MAX_HOLD_LOOP_S = 18.0;
-
-function crossfadeDuration() {
-    return Math.min(MAX_CROSSFADE_S, Math.max(MIN_CROSSFADE_S, BASE_CROSSFADE_S / userSpeedMult));
-}
-function holdLoopInterval() {
-    return Math.min(MAX_HOLD_LOOP_S, Math.max(MIN_HOLD_LOOP_S, BASE_HOLD_LOOP_S / userSpeedMult));
-}
-
-// Begins dissolving from whatever is on screen now into a fresh copy of `params`,
-// whose local clock starts at zero. Used both for a genuinely new quantum reading
-// and — with the *same* params — for the self-loop that keeps a held vision alive.
-function beginCrossfade(params, now) {
-    const backIdx = 1 - frontIdx;
-    layers[backIdx] = makeLayer(params, now);
-    crossfade.active = true;
-    crossfade.startClockTime = now;
-    lastHoldLoopTime = now;
 }
 
 function applyHex(hex) {
@@ -649,9 +593,8 @@ function applyHex(hex) {
 
     updateReadingsUI();
     flashSigil();
-    // A genuinely new, non-held reading — dissolve the pattern into it rather
-    // than snapping any of the numbers underneath the current image.
-    beginCrossfade(snapshotTarget(), clock.getElapsedTime());
+    // A genuinely new, non-held reading — ease toward it rather than snapping.
+    beginTween({ ...target }, clock.getElapsedTime());
 }
 
 function updateReadingsUI() {
@@ -716,47 +659,27 @@ function animate() {
     const now = clock.getElapsedTime();
     uniforms.uTime.value = now;
 
-    // While the vision is held, no new readings arrive — so periodically re-phase
-    // the *same* reading into a fresh copy of itself. The old copy keeps playing
-    // out (phasing out its own tail) while the fresh copy phases in alongside it,
-    // which keeps the glass quietly turning instead of settling on one frozen frame.
-    if (holding && !crossfade.active && (now - lastHoldLoopTime) >= holdLoopInterval()) {
-        beginCrossfade(layers[frontIdx].params, now);
+    if (tween) {
+        const t = Math.min(1, (now - tween.startClockTime) / tween.duration);
+        const e = t * t * (3.0 - 2.0 * t); // smoothstep easing
+
+        visual.level      = tween.from.level      + (tween.to.level      - tween.from.level) * e;
+        visual.symmetry   = tween.from.symmetry   + (tween.to.symmetry   - tween.from.symmetry) * e;
+        visual.speed       = tween.from.speed       + (tween.to.speed       - tween.from.speed) * e;
+        visual.intensity  = tween.from.intensity  + (tween.to.intensity  - tween.from.intensity) * e;
+        visual.iterations = tween.from.iterations + (tween.to.iterations - tween.from.iterations) * e;
+        visual.hueShift   = tween.from.hueShift   + tween.hueDelta * e;
+
+        if (t >= 1) tween = null;
     }
 
-    let mix = 0.0;
-    if (crossfade.active) {
-        const dur = crossfadeDuration();
-        const t = (now - crossfade.startClockTime) / dur;
-        if (t >= 1.0) {
-            frontIdx = 1 - frontIdx; // the incoming layer has fully phased in — it's now "front"
-            crossfade.active = false;
-        } else {
-            mix = t * t * (3.0 - 2.0 * t); // smoothstep easing, matches the shader's own smoothstep
-        }
-    }
-
-    const front = layers[frontIdx];
-    const back = layers[1 - frontIdx];
-
-    uniforms.uLevel0.value      = front.params.level;
-    uniforms.uSymmetry0.value   = Math.max(2, front.params.symmetry);
-    uniforms.uSpeed0.value      = Math.min(front.params.speed * userSpeedMult, MAX_SHADER_SPEED);
-    uniforms.uIntensity0.value  = front.params.intensity * userIntensityMult;
-    uniforms.uIterations0.value = front.params.iterations;
-    uniforms.uHueShift0.value   = front.params.hueShift;
-    uniforms.uLocalTime0.value  = now - front.startClockTime;
-
-    uniforms.uLevel1.value      = back.params.level;
-    uniforms.uSymmetry1.value   = Math.max(2, back.params.symmetry);
-    uniforms.uSpeed1.value      = Math.min(back.params.speed * userSpeedMult, MAX_SHADER_SPEED);
-    uniforms.uIntensity1.value  = back.params.intensity * userIntensityMult;
-    uniforms.uIterations1.value = back.params.iterations;
-    uniforms.uHueShift1.value   = back.params.hueShift;
-    uniforms.uLocalTime1.value  = now - back.startClockTime;
-
-    uniforms.uMix.value      = mix;
-    uniforms.uNegative.value = 0.0; // color inversion disabled — the reading stays a positive image
+    uniforms.uLevel.value      = visual.level;
+    uniforms.uSymmetry.value   = Math.max(2, visual.symmetry); // shader crossfades between floor/ceil for a seamless shape
+    uniforms.uSpeed.value      = Math.min(visual.speed * userSpeedMult, MAX_SHADER_SPEED);
+    uniforms.uIntensity.value  = visual.intensity * userIntensityMult;
+    uniforms.uIterations.value = visual.iterations;
+    uniforms.uHueShift.value   = visual.hueShift;
+    uniforms.uNegative.value   = 0.0; // color inversion disabled — the reading stays a positive image
 
     renderer.render(scene, camera);
 }
