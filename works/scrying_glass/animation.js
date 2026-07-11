@@ -207,9 +207,9 @@ chargeRingPulseStyle.textContent = `
 `;
 document.head.appendChild(chargeRingPulseStyle);
 
-// ---------- ATTUNEMENT (user speed control) ----------
+// ---------- ATTUNEMENT (user speed & luminance control) ----------
 let userSpeedMult = 1.0;
-const userIntensityMult = 1.0; // fixed — no longer user-adjustable
+let userIntensityMult = 1.0; // now user-adjustable via the Luminance slider
 
 const speedSlider = document.getElementById('s-speed');
 const vSpeed = document.getElementById('v-speed');
@@ -217,6 +217,14 @@ const vSpeed = document.getElementById('v-speed');
 speedSlider.addEventListener('input', () => {
     userSpeedMult = parseFloat(speedSlider.value);
     vSpeed.textContent = userSpeedMult.toFixed(2) + '×';
+});
+
+const lumSlider = document.getElementById('s-lum');
+const vLum = document.getElementById('v-lum');
+
+lumSlider.addEventListener('input', () => {
+    userIntensityMult = parseFloat(lumSlider.value);
+    vLum.textContent = userIntensityMult.toFixed(2) + '×';
 });
 
 function flashSigil() {
@@ -349,8 +357,8 @@ function applyHex(hex) {
 
     target.level      = 2.5 + (b(0) / 255) * 5.5;                // 2.5 - 8 (floor keeps the fractal from thinning to near-black)
     target.symmetry   = 2 + Math.floor((b(1) / 255) * 22);      // 2 - 24
-    target.speed       = 0.03 + (b(2) / 255) * 0.09;             // 0.03 - 0.12 (calm base drift, capped below strobe threshold)
-    target.intensity  = 0.85 + (b(3) / 255) * 0.55;               // 0.85 - 1.4 (floor keeps luminance from dipping too dark)
+    target.speed       = 0.03 + (b(2) / 255) * 0.57;             // 0.03 - 0.6 (same calm floor, but now the draw can occasionally land much faster)
+    target.intensity  = 1.0;                                      // no longer drawn from entropy — luminance is now purely the user's Luminance slider (userIntensityMult)
     target.iterations = 1 + Math.floor((b(4) / 255) * 2.999);   // 1 - 3
     target.hueShift   = (b(6) / 255) * Math.PI * 8;               // wraps several cycles
 
@@ -369,10 +377,7 @@ function updateReadingsUI() {
     document.getElementById('f-sym').style.width = ((target.symmetry - 2) / 22 * 100) + '%';
 
     document.getElementById('r-speed').textContent = target.speed.toFixed(2);
-    document.getElementById('f-speed').style.width = ((target.speed - 0.03) / 0.09 * 100) + '%';
-
-    document.getElementById('r-lum').textContent = target.intensity.toFixed(2);
-    document.getElementById('f-lum').style.width = ((target.intensity - 0.85) / 0.55 * 100) + '%';
+    document.getElementById('f-speed').style.width = ((target.speed - 0.03) / 0.57 * 100) + '%';
 
     const forms = ['—', 'Glow', 'Laser', 'Wave'];
     document.getElementById('r-form').textContent = forms[target.iterations] || target.iterations;
@@ -495,7 +500,7 @@ holdBtn.addEventListener('click', () => {
 });
 
 // ---------- ANIMATION LOOP ----------
-const MAX_SHADER_SPEED = 0.12; // hard cap so the kaleidoscope motion never races or strobes, even with the slider maxed
+const MAX_SHADER_SPEED = 0.2; // hard cap so the kaleidoscope motion never races or strobes, even with the slider maxed
 
 // The shader now receives an ACCUMULATED clock rather than raw elapsed time.
 // Each frame we advance it by (deltaTime * currentSpeed), so changing speed
