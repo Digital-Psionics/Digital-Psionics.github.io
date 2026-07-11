@@ -110,9 +110,12 @@ const sigilFlash = document.getElementById('sigil-flash');
 // ---------- CHARGE RING (built entirely in JS — no HTML changes needed) ----------
 // A small SVG progress ring that follows the pointer while the user holds
 // down, filling up as the charge builds toward release.
-const CHARGE_RING_SIZE = 64;
-const CHARGE_RING_RADIUS = 26;
+const CHARGE_RING_SIZE = 120;
+const CHARGE_RING_RADIUS = 48;
 const CHARGE_RING_CIRC = 2 * Math.PI * CHARGE_RING_RADIUS;
+// Lift the ring above the fingertip so a thumb resting on the glass doesn't
+// block the view of it while charging.
+const CHARGE_RING_LIFT = 0;
 
 const chargeRingEl = document.createElement('div');
 chargeRingEl.id = 'charge-ring';
@@ -139,14 +142,14 @@ chargeRingEl.innerHTML = `
     "></div>
     <svg width="${CHARGE_RING_SIZE}" height="${CHARGE_RING_SIZE}" viewBox="0 0 ${CHARGE_RING_SIZE} ${CHARGE_RING_SIZE}" style="position: relative;">
         <circle cx="${CHARGE_RING_SIZE/2}" cy="${CHARGE_RING_SIZE/2}" r="${CHARGE_RING_RADIUS}"
-            fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="2"></circle>
+            fill="none" stroke="rgba(255,255,255,0.15)" stroke-width="4"></circle>
         <circle id="charge-ring-fill" cx="${CHARGE_RING_SIZE/2}" cy="${CHARGE_RING_SIZE/2}" r="${CHARGE_RING_RADIUS}"
-            fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2.5"
+            fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="5"
             stroke-linecap="round"
             stroke-dasharray="${CHARGE_RING_CIRC}"
             stroke-dashoffset="${CHARGE_RING_CIRC}"
             transform="rotate(-90 ${CHARGE_RING_SIZE/2} ${CHARGE_RING_SIZE/2})"></circle>
-        <circle id="charge-ring-core" cx="${CHARGE_RING_SIZE/2}" cy="${CHARGE_RING_SIZE/2}" r="4"
+        <circle id="charge-ring-core" cx="${CHARGE_RING_SIZE/2}" cy="${CHARGE_RING_SIZE/2}" r="6"
             fill="rgba(255,255,255,0.8)"></circle>
     </svg>
 `;
@@ -156,7 +159,7 @@ const chargeRingCore = chargeRingEl.querySelector('#charge-ring-core');
 const chargeRingGlow = chargeRingEl.querySelector('#charge-ring-glow');
 
 function positionChargeRing(x, y) {
-    chargeRingEl.style.transform = `translate(${x - CHARGE_RING_SIZE/2}px, ${y - CHARGE_RING_SIZE/2}px)`;
+    chargeRingEl.style.transform = `translate(${x - CHARGE_RING_SIZE/2}px, ${y - CHARGE_RING_SIZE/2 - CHARGE_RING_LIFT}px)`;
 }
 
 // Caps how bright the glow behind the ring can get — keeps it from blowing
@@ -171,7 +174,7 @@ function setChargeRingProgress(p) {
     const offset = CHARGE_RING_CIRC * (1 - p);
     chargeRingFill.setAttribute('stroke-dashoffset', String(offset));
     const coreScale = 1 + p * 1.4;
-    chargeRingCore.setAttribute('r', String(4 * coreScale));
+    chargeRingCore.setAttribute('r', String(6 * coreScale));
 
     // Ring + core brighten steadily as charge builds, then settle into a
     // warm gold once the limit is hit — the glow behind it caps out at
@@ -413,12 +416,15 @@ document.getElementById('btn-cast').addEventListener('click', () => {
 // fresh quantum draw, and the boost drains back to 0.
 const CHARGE_MAX_MS = 2600;   // time to reach full charge
 const CHARGE_MIN_MS = 180;    // below this, treat it as a simple tap/cast
-const CHARGE_LUMINANCE_MAX = 0.85; // hard ceiling on extra brightness from charging, so full charge glows bright but never blows out
+const CHARGE_LUMINANCE_MAX = 3.2; // hard ceiling on extra brightness from charging — full charge reads as blindingly bright
+const RELEASE_SPEED_BURST = 4.5;  // extra speed multiplier right at release, decaying back to normal
+const RELEASE_DECAY_RATE = 2.5;   // how fast the release burst dies off (higher = snappier)
 
 let chargePointerId = null;
 let chargeStartTime = 0;
 let charging = false;
 let chargeBoost = 0; // smoothed 0..1, read by animate()
+let releaseBoost = 0; // spikes on release, decays back to 0 — the "speed up to the end" burst
 
 function chargeProgress() {
     if (!charging) return 0;
@@ -445,7 +451,6 @@ function onChargeMove(e) {
     const x = e.clientX ?? (e.touches && e.touches[0].clientX);
     const y = e.clientY ?? (e.touches && e.touches[0].clientY);
     if (x !== undefined && y !== undefined) positionChargeRing(x, y);
-    setChargeRingProgress(chargeProgress());
 }
 
 function onChargeEnd() {
@@ -463,7 +468,10 @@ function onChargeEnd() {
     }
 
     // Full release: hard flash scaled by how charged it got, then draw a
-    // fresh reading — the charge "pays off" as a new vision.
+    // fresh reading — the charge "pays off" as a new vision. The pattern,
+    // which held still while charging, now surges forward fast and eases
+    // back to its normal speed.
+    releaseBoost = RELEASE_SPEED_BURST * progress;
     flashRelease(progress);
     if (!holding) refreshEntropy();
     // chargeBoost itself decays smoothly to 0 inside animate().
@@ -532,18 +540,32 @@ function animate() {
     chargeBoost += (targetBoost - chargeBoost) * Math.min(1, dt * boostRate);
     if (Math.abs(chargeBoost) < 0.001) chargeBoost = 0;
 
+    // Keep the ring's own fill/glow in sync every frame — not just on
+    // pointer move — so it fills smoothly even if the user holds still.
+    if (charging) {
+        setChargeRingProgress(chargeProgress());
+    }
+
     uniforms.uLevel.value      = visual.level + chargeBoost * 1.2;
     uniforms.uSymmetry.value   = Math.max(2, visual.symmetry + chargeBoost * 4); // shader crossfades between floor/ceil for a seamless shape
 
-    // Charging also spins the fractal's inner clock a little faster, on top
-    // of the normal speed cap, so the buildup reads as gathering energy.
-    const currentSpeed = Math.min(visual.speed * userSpeedMult * (1 + chargeBoost * 0.6), MAX_SHADER_SPEED * 1.6);
-    shaderClock += dt * currentSpeed;
+    // While charging, the pattern holds still — all motion pauses so the
+    // charging feels like concentration/gathering rather than churning.
+    // On release, a speed burst fires and eases back down to normal,
+    // reading as the built-up energy surging forward.
+    releaseBoost += (0 - releaseBoost) * Math.min(1, dt * RELEASE_DECAY_RATE);
+    if (Math.abs(releaseBoost) < 0.001) releaseBoost = 0;
+
+    if (!charging) {
+        const currentSpeed = Math.min(visual.speed * userSpeedMult * (1 + releaseBoost), MAX_SHADER_SPEED * 3.0);
+        shaderClock += dt * currentSpeed;
+    }
     uniforms.uTime.value       = shaderClock; // accumulated clock, not raw elapsed time — see note above
 
     // Luminance climbs with charge on an ease-in curve (starts slow, builds
     // fast) so the buildup reads as "gathering light" rather than a flat
-    // ramp, then hard-caps at CHARGE_LUMINANCE_MAX once fully charged.
+    // ramp, then hard-caps at CHARGE_LUMINANCE_MAX — full charge is
+    // deliberately blown-out bright as the peak payoff moment.
     const luminanceBoost = Math.min(CHARGE_LUMINANCE_MAX, chargeBoost * chargeBoost * CHARGE_LUMINANCE_MAX);
     uniforms.uIntensity.value  = (visual.intensity * userIntensityMult) + luminanceBoost;
     uniforms.uIterations.value = visual.iterations;
