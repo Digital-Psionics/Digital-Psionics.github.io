@@ -267,7 +267,6 @@
     uniform float uTime;
     uniform vec2 uResolution;
     uniform float uLevel;
-    uniform float uSpeed;
     uniform float uSymmetry;
     uniform float uIntensity;
     uniform float uIterations;
@@ -313,21 +312,21 @@
             uv = abs(uv) - 0.5;
             uv *= 1.2;
 
-            float t = uTime * uSpeed * 0.2;
+            float t = uTime * 0.2;
             float s = sin(t + i*0.5);
             float c = cos(t + i*0.5);
             uv *= mat2(c, -s, s, c);
 
             float d = length(uv) * exp(-length(uv0));
-            vec3 col = palette(length(uv0) + i*.4 + uTime*.4 * uSpeed + uHueShift);
+            vec3 col = palette(length(uv0) + i*.4 + uTime*.4 + uHueShift);
 
-            float glow = sin(d*8. + uTime * uSpeed)/8.;
+            float glow = sin(d*8. + uTime)/8.;
             glow = abs(glow);
             glow = pow(0.01 / glow, 1.2);
 
             float laserMix = smoothstep(1.6, 2.4, iterStyle);
             if (laserMix > 0.001) {
-                float laser = 0.02 / abs(sin(d * 20.0 + uTime * uSpeed * 0.6));
+                float laser = 0.02 / abs(sin(d * 20.0 + uTime * 0.6));
                 glow += laser * 0.5 * laserMix;
             }
 
@@ -344,12 +343,12 @@
         vec3 finalColor = vec3(0.0);
 
         if (level < 2.5) {
-            float noise = random(uv + uTime * uSpeed * 0.5);
+            float noise = random(uv + uTime * 0.5);
 
             float phos = 0.0;
             for(float i=0.0; i<3.0; i++){
                 uv += vec2(0.7 / (i+1.0), 0.3 / (i+1.0));
-                float t = uTime * uSpeed * 0.5;
+                float t = uTime * 0.5;
                 phos += sin(uv.x * (3.0 + i) + t) * sin(uv.y * (3.0 + i) + t);
             }
 
@@ -398,7 +397,6 @@ const uniforms = {
     uTime: { value: 0.0 },
     uResolution: { value: new THREE.Vector2(window.innerWidth, window.innerHeight) },
     uLevel: { value: 3.0 },
-    uSpeed: { value: 0.12 },
     uSymmetry: { value: 6.0 },
     uIntensity: { value: 1.0 },
     uIterations: { value: 1.0 },
@@ -567,7 +565,9 @@ const MIN_TWEEN_S = 1.2;
 const MAX_TWEEN_S = 8.0;
 
 function tweenDuration() {
-    return Math.min(MAX_TWEEN_S, Math.max(MIN_TWEEN_S, BASE_TWEEN_S / userSpeedMult));
+    // Fixed — no longer tied to the "Speed of Change" slider, which now only
+    // controls how fast the fractal itself drifts (see uSpeed / shaderClock below).
+    return BASE_TWEEN_S;
 }
 
 // Hue wraps every 2π — take the shortest angular path so a big jump in the
@@ -668,10 +668,18 @@ holdBtn.addEventListener('click', () => {
 // ---------- ANIMATION LOOP ----------
 const MAX_SHADER_SPEED = 0.12; // hard cap so the kaleidoscope motion never races or strobes, even with the slider maxed
 
+// The shader now receives an ACCUMULATED clock rather than raw elapsed time.
+// Each frame we advance it by (deltaTime * currentSpeed), so changing speed
+// changes the rate the clock ticks going forward — no jump/teleport in the
+// pattern when the slider moves, unlike multiplying uTime * uSpeed directly.
+let shaderClock = 0;
+let lastFrameTime = 0;
+
 function animate() {
     requestAnimationFrame(animate);
     const now = clock.getElapsedTime();
-    uniforms.uTime.value = now;
+    const dt = lastFrameTime === 0 ? 0 : (now - lastFrameTime);
+    lastFrameTime = now;
 
     if (tween) {
         const t = Math.min(1, (now - tween.startClockTime) / tween.duration);
@@ -689,7 +697,11 @@ function animate() {
 
     uniforms.uLevel.value      = visual.level;
     uniforms.uSymmetry.value   = Math.max(2, visual.symmetry); // shader crossfades between floor/ceil for a seamless shape
-    uniforms.uSpeed.value      = Math.min(visual.speed * userSpeedMult, MAX_SHADER_SPEED);
+
+    const currentSpeed = Math.min(visual.speed * userSpeedMult, MAX_SHADER_SPEED);
+    shaderClock += dt * currentSpeed;
+    uniforms.uTime.value       = shaderClock; // accumulated clock, not raw elapsed time — see note above
+
     uniforms.uIntensity.value  = visual.intensity * userIntensityMult;
     uniforms.uIterations.value = visual.iterations;
     uniforms.uHueShift.value   = visual.hueShift;
