@@ -5,7 +5,7 @@
 
 let audioCtx = null;
 let audioNodes = null;
-let audioEnabled = false;
+let audioEnabled = true;
 
 // --- Dream‑pop chord library (simplified but lush) ---
 const CHORD_LIBRARY = [
