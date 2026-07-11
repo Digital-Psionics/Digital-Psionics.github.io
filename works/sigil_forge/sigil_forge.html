@@ -1,0 +1,1473 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sigil Forge ∴ Chaos Magic Sigil Generator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;600;700&family=Inter:wght@300;400;500;600&family=Cormorant+Garamond&family=Noto+Sans+Symbols+2&family=Noto+Sans+Symbols&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #020206; --bg-card: #0a0a14; --crimson: #AF0820; --scarlet: #E11C3A;
+    --violet: #5A009B; --indigo: #320073; --cobalt: #2A3ECD; --lavender: #A058D2;
+    --rose: #C33776; --pale: #D2C8EB; --white: #F0EDF8; --muted: #7A6E99;
+    --border: #1a1533; --glow-crimson: rgba(175,8,32,0.6); --glow-violet: rgba(90,0,155,0.5);
+    --glow-pale: rgba(210,200,235,0.3);
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { background: var(--bg); color: var(--pale); font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; }
+  body { display: flex; flex-direction: column; align-items: center; padding: 40px 20px 60px;
+    background: radial-gradient(ellipse 80% 50% at 50% -10%, rgba(90,0,155,0.15) 0%, transparent 60%),
+      radial-gradient(ellipse 50% 60% at 20% 80%, rgba(175,8,32,0.06) 0%, transparent 50%), var(--bg); }
+  header { text-align: center; margin-bottom: 32px; animation: fadeInDown 1s ease-out; }
+  @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
+  .sigil-mark { width: 64px; height: 64px; margin: 0 auto 18px; position: relative; animation: markPulse 4s ease-in-out infinite; }
+  @keyframes markPulse { 0%, 100% { transform: scale(1); opacity: 0.8; } 50% { transform: scale(1.05); opacity: 1; } }
+  .sigil-mark::before, .sigil-mark::after { content: ''; position: absolute; border-radius: 50%; border: 1.5px solid var(--crimson); }
+  .sigil-mark::before { width: 64px; height: 64px; top: 0; left: 0; box-shadow: 0 0 24px var(--glow-crimson), inset 0 0 16px var(--glow-crimson); animation: rotateSlow 20s linear infinite; }
+  .sigil-mark::after { width: 32px; height: 32px; top: 16px; left: 16px; border-color: var(--violet); box-shadow: 0 0 14px var(--glow-violet), inset 0 0 8px var(--glow-violet); animation: rotateSlow 15s linear infinite reverse; }
+  @keyframes rotateSlow { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .sigil-mark .dot { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: var(--pale); box-shadow: 0 0 8px var(--glow-pale); }
+  .sigil-mark .dot:nth-child(1) { top: 4px; left: 28.5px; }
+  .sigil-mark .dot:nth-child(2) { bottom: 4px; left: 28.5px; }
+  .sigil-mark .dot:nth-child(3) { top: 28.5px; left: 4px; }
+  .sigil-mark .dot:nth-child(4) { top: 28.5px; right: 4px; }
+  h1 { font-family: 'Cormorant Garamond', 'Cinzel Decorative', serif; font-size: clamp(2.6rem, 7vw, 4.5rem); color: var(--white); letter-spacing: 0.06em; line-height: 1.05; text-shadow: 0 0 40px var(--glow-crimson), 0 0 80px rgba(175,8,32,0.25), 0 0 120px rgba(90,0,155,0.15); margin-bottom: 10px; }
+  .tagline { font-family: 'Cinzel', serif; font-size: clamp(0.8rem, 2vw, 1rem); color: var(--muted); letter-spacing: 0.28em; text-transform: uppercase; font-weight: 400; }
+  .divider { width: 140px; height: 1px; background: linear-gradient(90deg, transparent, var(--crimson), var(--violet), var(--cobalt), transparent); margin: 24px auto 0; opacity: 0.7; position: relative; }
+  .divider::after { content: '∴'; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); color: var(--lavender); font-size: 0.9rem; opacity: 0.6; background: var(--bg); padding: 0 8px; }
+  .forge-card { width: 100%; max-width: 560px; background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px; padding: 32px 36px 36px; margin-bottom: 40px; position: relative; box-shadow: 0 0 0 1px rgba(90,0,155,0.06), 0 24px 80px rgba(0,0,0,0.7), 0 0 60px rgba(90,0,155,0.05); animation: fadeInUp 0.8s ease-out 0.2s both; }
+  @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+  .forge-card::before { content: ''; position: absolute; inset: -1px; border-radius: 17px; padding: 1px; background: linear-gradient(160deg, rgba(175,8,32,0.3), rgba(90,0,155,0.2), rgba(42,62,205,0.1), transparent 70%); -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+  .forge-card label { display: block; font-family: 'Cinzel', serif; font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase; color: var(--muted); margin-bottom: 12px; }
+  .input-wrap { position: relative; display: flex; gap: 12px; align-items: stretch; }
+  #phraseInput { flex: 1; background: rgba(2,2,6,0.8); border: 1.5px solid var(--border); border-radius: 10px; padding: 16px 18px; color: var(--pale); font-family: 'Inter', sans-serif; font-size: 1.05rem; letter-spacing: 0.02em; outline: none; transition: all 0.3s ease; }
+  #phraseInput::placeholder { color: #4a4466; }
+  #phraseInput:focus { border-color: var(--crimson); box-shadow: 0 0 0 4px rgba(175,8,32,0.12), 0 0 30px rgba(175,8,32,0.1); background: rgba(2,2,6,0.95); }
+  .resolution-control { margin-top: 24px; }
+  .resolution-head { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 12px; }
+  .resolution-head label { margin-bottom: 0; }
+  .resolution-val { font-family: 'Inter', monospace; font-size: 0.78rem; color: var(--lavender); letter-spacing: 0.03em; }
+  #resolutionSlider { -webkit-appearance: none; appearance: none; width: 100%; height: 4px; border-radius: 3px; background: linear-gradient(90deg, var(--crimson), var(--violet), var(--cobalt)); outline: none; cursor: pointer; display: block; }
+  #resolutionSlider::-webkit-slider-thumb { -webkit-appearance: none; width: 16px; height: 16px; border-radius: 50%; background: var(--white); border: 2px solid var(--crimson); box-shadow: 0 0 10px var(--glow-crimson); cursor: pointer; }
+  #resolutionSlider::-moz-range-thumb { width: 16px; height: 16px; border-radius: 50%; background: var(--white); border: 2px solid var(--crimson); box-shadow: 0 0 10px var(--glow-crimson); cursor: pointer; }
+  #resolutionSlider:disabled { opacity: 0.4; cursor: not-allowed; }
+  .resolution-hints { display: flex; justify-content: space-between; font-family: 'Cinzel', serif; font-size: 0.62rem; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; margin-top: 8px; }
+  #forgeBtn { font-family: 'Cinzel', serif; font-size: 0.85rem; letter-spacing: 0.18em; text-transform: uppercase; font-weight: 700; color: var(--white); background: linear-gradient(135deg, var(--crimson), var(--scarlet)); border: none; border-radius: 10px; padding: 0 32px; cursor: pointer; position: relative; overflow: hidden; transition: all 0.3s ease; box-shadow: 0 4px 24px rgba(175,8,32,0.4), 0 0 0 1px rgba(175,8,32,0.25); white-space: nowrap; }
+  #forgeBtn:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(175,8,32,0.55), 0 0 0 1px rgba(175,8,32,0.35); background: linear-gradient(135deg, #c00a28, #f02048); }
+  #forgeBtn:active { transform: translateY(0); }
+  #forgeBtn::after { content: ''; position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent); transform: translateX(-100%); transition: transform 0.6s; }
+  #forgeBtn:hover::after { transform: translateX(100%); }
+  #forgeBtn:disabled { opacity: 0.5; cursor: not-allowed; transform: none; }
+  .stage { width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; gap: 24px; animation: fadeInUp 0.8s ease-out 0.4s both; }
+  .canvas-wrap { position: relative; width: 100%; max-width: 700px; aspect-ratio: 1 / 1; border-radius: 20px; overflow: hidden; background: var(--bg); border: 1px solid var(--border); box-shadow: 0 0 0 1px rgba(90,0,155,0.08), 0 40px 100px rgba(0,0,0,0.8), 0 0 80px rgba(90,0,155,0.08), inset 0 0 100px rgba(0,0,0,0.5); }
+  .canvas-wrap::before { content: ''; position: absolute; inset: 0; border-radius: 20px; pointer-events: none; box-shadow: inset 0 0 60px rgba(0,0,0,0.6); z-index: 2; }
+  .canvas-wrap::after { content: ''; position: absolute; inset: 0; border-radius: 20px; pointer-events: none; border: 1px solid rgba(160,88,210,0.08); z-index: 3; }
+  #sigilCanvas { width: 100%; height: 100%; display: block; image-rendering: auto; }
+  .canvas-placeholder { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; color: var(--muted); font-family: 'Cinzel', serif; font-size: 0.9rem; letter-spacing: 0.14em; text-transform: uppercase; pointer-events: none; z-index: 1; transition: opacity 0.5s; }
+  .canvas-placeholder.hidden { opacity: 0; }
+  .canvas-placeholder .orb { width: 60px; height: 60px; border-radius: 50%; border: 1.5px solid var(--border); position: relative; animation: pulse 3s ease-in-out infinite; }
+  .canvas-placeholder .orb::before { content: ''; position: absolute; inset: 8px; border-radius: 50%; border: 1px solid rgba(90,0,155,0.3); }
+  .canvas-placeholder .orb::after { content: ''; position: absolute; inset: 18px; border-radius: 50%; background: radial-gradient(circle, rgba(175,8,32,0.3), transparent 70%); animation: pulseInner 2s ease-in-out infinite; }
+  @keyframes pulse { 0%, 100% { opacity: 0.3; transform: scale(1); } 50% { opacity: 0.7; transform: scale(1.08); } }
+  @keyframes pulseInner { 0%, 100% { opacity: 0.4; transform: scale(1); } 50% { opacity: 0.9; transform: scale(1.15); } }
+  .shimmer { position: absolute; inset: 0; background: linear-gradient(90deg, transparent, rgba(175,8,32,0.06), rgba(90,0,155,0.04), transparent); background-size: 300% 100%; animation: shimmer 2s infinite; pointer-events: none; z-index: 4; opacity: 0; transition: opacity 0.4s; }
+  .shimmer.active { opacity: 1; }
+  @keyframes shimmer { 0% { background-position: 300% 0; } 100% { background-position: -300% 0; } }
+  .forge-progress { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 16px; z-index: 5; opacity: 0; pointer-events: none; transition: opacity 0.4s; padding: 0 40px; text-align: center; }
+  .forge-progress.active { opacity: 1; }
+  .forge-progress-label { font-family: 'Cinzel', serif; font-size: 0.78rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--pale); text-shadow: 0 0 16px rgba(175,8,32,0.45); min-height: 1.2em; }
+  .forge-progress-track { width: 220px; height: 3px; background: rgba(255,255,255,0.08); border-radius: 3px; overflow: hidden; position: relative; }
+  .forge-progress-fill { position: absolute; inset: 0 auto 0 0; width: 0%; background: linear-gradient(90deg, var(--crimson), var(--lavender)); box-shadow: 0 0 14px var(--glow-crimson); border-radius: 3px; transition: width 0.3s ease-out; }
+  .forge-progress-pct { font-family: 'Inter', monospace; font-size: 0.7rem; color: var(--muted); letter-spacing: 0.05em; }
+  .actions { display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; opacity: 0; transform: translateY(12px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; }
+  .actions.visible { opacity: 1; transform: translateY(0); pointer-events: all; }
+  .btn-ghost { font-family: 'Cinzel', serif; font-size: 0.75rem; letter-spacing: 0.16em; text-transform: uppercase; font-weight: 600; color: var(--pale); background: transparent; border: 1.5px solid var(--border); border-radius: 10px; padding: 12px 24px; cursor: pointer; transition: all 0.3s ease; display: inline-flex; align-items: center; gap: 10px; position: relative; overflow: hidden; }
+  .btn-ghost:hover { border-color: var(--lavender); color: var(--white); background: rgba(160,88,210,0.1); box-shadow: 0 0 30px rgba(160,88,210,0.15), 0 4px 16px rgba(0,0,0,0.3); transform: translateY(-1px); }
+  .btn-ghost:active { transform: translateY(0); }
+  .btn-ghost svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; opacity: 0.7; }
+  .btn-ghost.success { border-color: #2a8a4a; color: #5ecf8a; background: rgba(42,138,74,0.1); }
+  .info { margin-top: 36px; text-align: center; max-width: 520px; animation: fadeInUp 0.8s ease-out 0.6s both; }
+  .info p { font-size: 0.82rem; color: var(--muted); line-height: 1.8; letter-spacing: 0.02em; }
+  .info .mono { font-family: 'Inter', monospace; font-size: 0.72rem; color: #4a4466; margin-top: 10px; letter-spacing: 0.05em; }
+  .glyph-preview { margin-top: 0; max-height: 0; overflow: hidden; font-size: 1.4rem; color: var(--lavender); letter-spacing: 0.3em; opacity: 0; transition: opacity 0.5s, max-height 0.5s, margin-top 0.5s; text-align: center; font-family: 'Noto Sans Symbols 2', 'Noto Sans Symbols', sans-serif; }
+  .glyph-preview.visible { opacity: 0.7; max-height: 4rem; margin-top: 16px; }
+
+  /* Info Panel */
+  .info-panel {
+    width: 100%;
+    max-width: 700px;
+    background: var(--bg-card);
+    border: 1px solid transparent;
+    border-radius: 16px;
+    padding: 28px 32px;
+    margin-top: 0;
+    max-height: 0;
+    overflow: hidden;
+    position: relative;
+    opacity: 0;
+    transform: translateY(12px);
+    transition: max-height 0.6s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.6s cubic-bezier(0.16, 1, 0.3, 1), transform 0.6s cubic-bezier(0.16, 1, 0.3, 1), margin-top 0.6s cubic-bezier(0.16, 1, 0.3, 1), border-color 0.6s;
+    pointer-events: none;
+  }
+  .info-panel.visible {
+    max-height: 1200px;
+    opacity: 1;
+    transform: translateY(0);
+    margin-top: 8px;
+    border-color: var(--border);
+    pointer-events: all;
+  }
+  .info-panel::before {
+    content: '';
+    position: absolute;
+    inset: -1px;
+    border-radius: 17px;
+    padding: 1px;
+    background: linear-gradient(160deg, rgba(175,8,32,0.15), rgba(90,0,155,0.1), transparent 70%);
+    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+  .info-panel h3 {
+    font-family: 'Cinzel', serif;
+    font-size: 0.65rem;
+    letter-spacing: 0.28em;
+    text-transform: uppercase;
+    color: var(--crimson);
+    margin-bottom: 20px;
+    text-align: center;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 4px 36px;
+  }
+  @media (max-width: 560px) {
+    .info-grid { grid-template-columns: 1fr; }
+  }
+  .info-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(26,21,51,0.5);
+  }
+  .info-row:last-child { border-bottom: none; }
+  .info-row.full-width { grid-column: 1 / -1; }
+  .info-label {
+    font-family: 'Cinzel', serif;
+    font-size: 0.62rem;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: var(--muted);
+    flex-shrink: 0;
+    margin-right: 16px;
+  }
+  .info-value {
+    font-family: 'Inter', sans-serif;
+    font-size: 0.88rem;
+    color: var(--pale);
+    text-align: right;
+    word-break: break-word;
+  }
+  .info-value.glyphs {
+    font-size: 1.1rem;
+    letter-spacing: 0.15em;
+    color: var(--lavender);
+  }
+  .info-value.path {
+    font-size: 0.78rem;
+    letter-spacing: 0.06em;
+    color: var(--rose);
+  }
+  .info-value.mono {
+    font-family: 'Inter', monospace;
+    font-size: 0.82rem;
+    color: var(--white);
+  }
+
+  footer { margin-top: auto; padding-top: 48px; text-align: center; font-size: 0.68rem; color: #332b55; letter-spacing: 0.14em; font-family: 'Cinzel', serif; animation: fadeInUp 0.8s ease-out 0.8s both; }
+  @media (max-width: 560px) { .forge-card { padding: 24px 22px 28px; } .input-wrap { flex-direction: column; } #forgeBtn { padding: 16px; width: 100%; } .canvas-wrap { border-radius: 14px; } .actions { gap: 10px; } .btn-ghost { padding: 10px 18px; font-size: 0.7rem; } .info-panel { padding: 20px 18px; } }
+</style>
+<base target="_blank">
+<base target="_blank">
+</head>
+<body>
+
+<header>
+  <div class="sigil-mark">
+    <div class="dot"></div><div class="dot"></div>
+    <div class="dot"></div><div class="dot"></div>
+  </div>
+  <h1>Sigil Forge</h1>
+  <p class="tagline">Chaos Magic Sigil Generator</p>
+  <div class="divider"></div>
+</header>
+
+<section class="forge-card">
+  <label for="phraseInput">Enter your intention</label>
+  <div class="input-wrap">
+    <input type="text" id="phraseInput" placeholder="e.g. I will find clarity" autocomplete="off" spellcheck="false">
+    <button id="forgeBtn">Forge</button>
+  </div>
+  <div class="resolution-control">
+    <div class="resolution-head">
+      <label for="resolutionSlider" style="margin-bottom:0;">Output resolution</label>
+      <span class="resolution-val" id="resolutionVal">1000 &times; 1000 px</span>
+    </div>
+    <input type="range" id="resolutionSlider" min="700" max="2400" step="100" value="1000">
+    <div class="resolution-hints"><span>Faster</span><span>Sharper</span></div>
+  </div>
+</section>
+
+<section class="stage">
+  <div class="glyph-preview" id="glyphPreview"></div>
+
+  <div class="info-panel" id="infoPanel">
+    <h3>The Working</h3>
+    <div class="info-grid" id="infoGrid">
+      <div class="info-row full-width">
+        <span class="info-label">Phrase</span>
+        <span class="info-value" id="infoPhrase">—</span>
+      </div>
+      <div class="info-row full-width">
+        <span class="info-label">Consonant path</span>
+        <span class="info-value path" id="infoPath">—</span>
+      </div>
+      <div class="info-row full-width">
+        <span class="info-label">Chaos glyphs</span>
+        <span class="info-value glyphs" id="infoGlyphs">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Lattice points</span>
+        <span class="info-value mono" id="infoLattice">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Chord multipliers</span>
+        <span class="info-value mono" id="infoMultipliers">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Mandala rings</span>
+        <span class="info-value mono" id="infoRings">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Depth</span>
+        <span class="info-value mono" id="infoDepth">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Rotation</span>
+        <span class="info-value mono" id="infoRotation">—</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">Spin bias</span>
+        <span class="info-value mono" id="infoSpin">—</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="canvas-wrap" id="canvasWrap">
+    <div class="shimmer" id="shimmer"></div>
+    <div class="forge-progress" id="forgeProgress">
+      <div class="forge-progress-label" id="forgeProgressLabel">Beginning the forge&hellip;</div>
+      <div class="forge-progress-track">
+        <div class="forge-progress-fill" id="forgeProgressFill"></div>
+      </div>
+      <div class="forge-progress-pct" id="forgeProgressPct">0%</div>
+    </div>
+    <div class="canvas-placeholder" id="placeholder">
+      <div class="orb"></div>
+      <span>Enter an intention and press Forge</span>
+    </div>
+    <canvas id="sigilCanvas"></canvas>
+  </div>
+
+  <div class="actions" id="actions">
+    <button class="btn-ghost" id="downloadBtn">
+      <svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+      Download PNG
+    </button>
+    <button class="btn-ghost" id="copyBtn">
+      <svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+      Copy to Clipboard
+    </button>
+    <button class="btn-ghost" id="newBtn">
+      <svg viewBox="0 0 24 24"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+      New Sigil
+    </button>
+  </div>
+</section>
+
+<div class="info">
+  <p>Each sigil is forged deterministically from your phrase. Consonants map to celestial glyphs, and the geometry is seeded by your intention itself.</p>
+  <p class="mono">Deterministic · Seed-based · Canvas 2D · SSAA · 900px</p>
+</div>
+
+<footer>
+  <span>Sigil Forge ∴ Chaos Engine</span>
+</footer>
+
+<script>
+// ============================================================
+// Sigil Forge — Canvas 2D Engine (Fixed v3)
+// Replicates Python PIL approach: SSAA, tapered chords,
+// Gaussian blur glow, multi-pass compositing, vignette
+// ============================================================
+
+const COL = {
+  BG: [2,2,6], CRIMSON: [175,8,32], SCARLET: [225,28,58],
+  VIOLET: [90,0,155], INDIGO: [50,0,115], MIDNIGHT: [18,8,130],
+  COBALT: [42,62,205], LAVENDER: [160,88,210], ROSE: [195,55,118], PALE: [210,200,235]
+};
+
+const CHAOS_ALPHABET = {
+  A:'\u2609', B:'\u25CF', C:'\u263E', D:'\u263D', E:'\u25CB', F:'\u263F',
+  G:'\u2640', H:'\u2641', I:'\u2642', J:'\u2643', K:'\u2644', L:'\u2645',
+  M:'\u2646', N:'\u2647', O:'\u2648', P:'\u2649', Q:'\u264A', R:'\u264B',
+  S:'\u264C', T:'\u264D', U:'\u264E', V:'\u264F', W:'\u2650', X:'\u2651',
+  Y:'\u2652', Z:'\u2653'
+};
+const VOWELS = new Set(['A','E','I','O','U']);
+const MULT_POOL = [2,3,4,5,7,8,9,11,13,17,19,23];
+const HASH_LEN = 32;
+const SSAA = 2;
+
+function cyrb128(str) {
+  let h1=1779033703, h2=3144134277, h3=1013904242, h4=2773480762;
+  for(let i=0,k;i<str.length;i++){
+    k=str.charCodeAt(i);
+    h1=h2^Math.imul(h1^k,597399067);
+    h2=h3^Math.imul(h2^k,2869860233);
+    h3=h4^Math.imul(h3^k,951274213);
+    h4=h1^Math.imul(h4^k,2716044179);
+  }
+  h1=Math.imul(h3^(h1>>>18),597399067);
+  h2=Math.imul(h4^(h2>>>22),2869860233);
+  h3=Math.imul(h1^(h3>>>17),951274213);
+  h4=Math.imul(h2^(h4>>>19),2716044179);
+  return [(h1^h2^h3^h4)>>>0,h2>>>0,h3>>>0,h4>>>0];
+}
+function sfc32(a,b,c,d){
+  return function(){
+    a|=0;b|=0;c|=0;d|=0;
+    let t=(a+b|0)+d|0;
+    d=d+1|0;
+    a=b^(b>>>9);
+    b=c+(c<<3)|0;
+    c=(c<<21|c>>>11);
+    c=c+t|0;
+    return (t>>>0)/4294967296;
+  };
+}
+function seedBytes(text){
+  const h=cyrb128(text);
+  const rand=sfc32(h[0],h[1],h[2],h[3]);
+  const bytes=new Uint8Array(HASH_LEN);
+  for(let i=0;i<HASH_LEN;i++) bytes[i]=Math.floor(rand()*256);
+  return bytes;
+}
+function sf(seed,off,n=4){
+  let val=0;
+  for(let i=0;i<n;i++) val=val*256+seed[off+i];
+  return val/(Math.pow(256,n)-1);
+}
+
+function chaosData(phrase){
+  const rawConsonants=[];
+  for(const ch of phrase.toUpperCase()){
+    if(!/[A-Z]/.test(ch)||VOWELS.has(ch)) continue;
+    rawConsonants.push(ch);
+  }
+  const unique=[],seen=new Set();
+  for(const ch of rawConsonants){
+    if(!seen.has(ch)){seen.add(ch);unique.push(ch);}
+  }
+  const glyphs=unique.map(ch=>CHAOS_ALPHABET[ch]||ch);
+  return {rawConsonants,unique,glyphs};
+}
+function pickMultipliers(sd){
+  const out=[],seen=new Set();
+  for(let i=0;i<24;i++){
+    const m=MULT_POOL[sd[(20+i)%HASH_LEN]%MULT_POOL.length];
+    if(!seen.has(m)){seen.add(m);out.push(m);}
+    if(out.length===3) break;
+  }
+  while(out.length<3) out.push(3);
+  return out;
+}
+
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v));}
+
+// gaussianBlur() blurs a canvas IN PLACE and returns the same reference.
+// Whenever a source canvas needs to be blurred more than once (e.g. a
+// cached glyph mask reused across multiple blur passes/instances), it
+// must be cloned first or each successive blur compounds on the last.
+function cloneCanvas(src){
+  const c=document.createElement('canvas');
+  c.width=src.width;
+  c.height=src.height;
+  c.getContext('2d').drawImage(src,0,0);
+  return c;
+}
+function lerp(a,b,t){return [0,1,2].map(i=>Math.round(a[i]+(b[i]-a[i])*t));}
+
+// ── Gaussian Blur for Canvas 2D ─────────────────────────────
+function gaussianBlur(canvas, radius){
+  const w=canvas.width, h=canvas.height;
+  const src=canvas.getContext('2d').getImageData(0,0,w,h);
+  const dst=canvas.getContext('2d').createImageData(w,h);
+  const tmp=new Uint8ClampedArray(w*h*4);
+
+  const sigma=radius/3;
+  const size=Math.ceil(radius*2)*2+1;
+  const half=Math.floor(size/2);
+  const kernel=[];
+  let sum=0;
+  for(let i=0;i<size;i++){
+    const x=i-half;
+    const v=Math.exp(-(x*x)/(2*sigma*sigma));
+    kernel.push(v);
+    sum+=v;
+  }
+  for(let i=0;i<size;i++) kernel[i]/=sum;
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      let r=0,g=0,b=0,a=0;
+      for(let k=0;k<size;k++){
+        const sx=clamp(x+k-half,0,w-1);
+        const idx=(y*w+sx)*4;
+        const weight=kernel[k];
+        r+=src.data[idx]*weight;
+        g+=src.data[idx+1]*weight;
+        b+=src.data[idx+2]*weight;
+        a+=src.data[idx+3]*weight;
+      }
+      const idx=(y*w+x)*4;
+      tmp[idx]=r;
+      tmp[idx+1]=g;
+      tmp[idx+2]=b;
+      tmp[idx+3]=a;
+    }
+  }
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      let r=0,g=0,b=0,a=0;
+      for(let k=0;k<size;k++){
+        const sy=clamp(y+k-half,0,h-1);
+        const idx=(sy*w+x)*4;
+        const weight=kernel[k];
+        r+=tmp[idx]*weight;
+        g+=tmp[idx+1]*weight;
+        b+=tmp[idx+2]*weight;
+        a+=tmp[idx+3]*weight;
+      }
+      const idx=(y*w+x)*4;
+      dst.data[idx]=clamp(r,0,255);
+      dst.data[idx+1]=clamp(g,0,255);
+      dst.data[idx+2]=clamp(b,0,255);
+      dst.data[idx+3]=clamp(a,0,255);
+    }
+  }
+
+  canvas.getContext('2d').putImageData(dst,0,0);
+  return canvas;
+}
+
+// ── Screen blend mode (RGB only) ──────────────────────────
+function screenBlend(base, top){
+  const w=base.width, h=base.height;
+  const bCtx=base.getContext('2d');
+  const tCtx=top.getContext('2d');
+  const bData=bCtx.getImageData(0,0,w,h);
+  const tData=tCtx.getImageData(0,0,w,h);
+
+  for(let i=0;i<bData.data.length;i+=4){
+    for(let c=0;c<3;c++){
+      const bv=bData.data[i+c]/255;
+      const tv=tData.data[i+c]/255;
+      bData.data[i+c]=Math.round((1-(1-bv)*(1-tv))*255);
+    }
+  }
+
+  bCtx.putImageData(bData,0,0);
+  return base;
+}
+
+// ── Vignette ──────────────────────────────────────────────
+function applyVignette(canvas, cx, cy, maxDist){
+  const w=canvas.width, h=canvas.height;
+  const ctx=canvas.getContext('2d');
+  const imgData=ctx.getImageData(0,0,w,h);
+
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++){
+      const dist=Math.hypot(x-cx,y-cy);
+      const mask=clamp(1-Math.pow(dist/maxDist,1.6),0.38,1.0);
+      const idx=(y*w+x)*4;
+      imgData.data[idx]*=mask;
+      imgData.data[idx+1]*=mask;
+      imgData.data[idx+2]*=mask;
+    }
+  }
+
+  ctx.putImageData(imgData,0,0);
+  return canvas;
+}
+
+// ── Mask helpers ──────────────────────────────────────────
+function createDotTriangleMask(size, angleRad) {
+  const c = document.createElement('canvas');
+  c.width = size;
+  c.height = size;
+  const d = c.getContext('2d');
+  const cx = size / 2, cy = size / 2;
+  const r = size * 0.38;
+  const dotR = Math.max(2, Math.floor(size * 0.05));
+
+  d.fillStyle = 'white';
+  for (let k = 0; k < 3; k++) {
+    const a = angleRad + k * 2 * Math.PI / 3;
+    d.beginPath();
+    d.arc(cx + r * Math.cos(a), cy + r * Math.sin(a), dotR, 0, 2 * Math.PI);
+    d.fill();
+  }
+  return c;
+}
+
+function createGlyphMask(glyph, fontSize) {
+  const c = document.createElement('canvas');
+  c.width = fontSize * 4;
+  c.height = fontSize * 4;
+  const ctx = c.getContext('2d');
+  ctx.font = `${fontSize}px "Noto Sans Symbols 2", "Noto Sans Symbols", "Segoe UI Symbol", "Apple Symbols", "DejaVu Sans", sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = 'white';
+  ctx.fillText(glyph, c.width / 2, c.height / 2);
+
+  const imgData = ctx.getImageData(0, 0, c.width, c.height);
+  let minX = c.width, minY = c.height, maxX = 0, maxY = 0;
+  for (let y = 0; y < c.height; y++) {
+    for (let x = 0; x < c.width; x++) {
+      const a = imgData.data[(y * c.width + x) * 4 + 3];
+      if (a > 10) {
+        minX = Math.min(minX, x);
+        minY = Math.min(minY, y);
+        maxX = Math.max(maxX, x);
+        maxY = Math.max(maxY, y);
+      }
+    }
+  }
+  if (maxX <= minX) return null;
+
+  const pad = 2;
+  minX = Math.max(0, minX - pad);
+  minY = Math.max(0, minY - pad);
+  maxX = Math.min(c.width, maxX + pad);
+  maxY = Math.min(c.height, maxY + pad);
+
+  const w = maxX - minX;
+  const h = maxY - minY;
+  const targetSize = Math.max(12, Math.floor(fontSize));
+  const scale = Math.min(targetSize / w, targetSize / h);
+  const newW = Math.max(1, Math.floor(w * scale));
+  const newH = Math.max(1, Math.floor(h * scale));
+
+  const trimmed = document.createElement('canvas');
+  trimmed.width = w;
+  trimmed.height = h;
+  trimmed.getContext('2d').drawImage(c, -minX, -minY);
+
+  const final = document.createElement('canvas');
+  final.width = targetSize;
+  final.height = targetSize;
+  const fCtx = final.getContext('2d');
+  fCtx.drawImage(trimmed, 0, 0, w, h, (targetSize - newW) / 2, (targetSize - newH) / 2, newW, newH);
+  return final;
+}
+
+// ============================================================
+class SigilForge {
+  constructor(phrase, imgSize=900){
+    this.phrase=phrase;
+    this.imgSize=imgSize;
+    this._S=imgSize*SSAA;
+    this._cx=this._S/2.0;
+    this._cy=this._S/2.0;
+    this._R=this._S*0.355;
+
+    const sd=seedBytes(phrase);
+    this.sd=sd;
+
+    this.N=80+(sd[0]&0x3F);
+    this.m_vals=this._pickM();
+    this.sym=3;
+    this.rings=2+(sd[5]&3);
+    this.depth=1+(sd[6]&1);
+    this.spin=sf(sd,7);
+    this.fat=0.35+0.30*sf(sd,11);
+    this.rot0=sf(sd,15)*2*Math.PI;
+
+    const cd=chaosData(phrase);
+    this.rawConsonants=cd.rawConsonants;
+    this.uniqueConsonants=cd.unique;
+    this.chaosGlyphs=cd.glyphs;
+
+    const chordCols=[COL.INDIGO,COL.VIOLET,COL.CRIMSON,COL.SCARLET,COL.MIDNIGHT,COL.COBALT];
+    this.ringCol1=chordCols[sd[24]%chordCols.length];
+    this.ringCol2=chordCols[sd[25]%chordCols.length];
+  }
+
+  _pickM(){
+    const out=[],seen=new Set();
+    for(let i=0;i<24;i++){
+      const m=MULT_POOL[this.sd[(20+i)%HASH_LEN]%MULT_POOL.length];
+      if(!seen.has(m)){seen.add(m);out.push(m);}
+      if(out.length===3) break;
+    }
+    while(out.length<3) out.push(3);
+    return out;
+  }
+
+  _pt(i,n,r,off=0){
+    const a=2*Math.PI*i/n+off-Math.PI/2;
+    return [this._cx+r*Math.cos(a),this._cy+r*Math.sin(a)];
+  }
+
+  _drawTaperedChord(img,p0,p1,color,width){
+    const ctx=img.getContext('2d');
+    const overlay=document.createElement('canvas');
+    overlay.width=img.width;
+    overlay.height=img.height;
+    const d=overlay.getContext('2d');
+
+    const [x0,y0]=p0;
+    const [x1,y1]=p1;
+    const length=Math.max(8,Math.floor(Math.hypot(x1-x0,y1-y0)));
+
+    for(let i=0;i<length;i++){
+      const t=i/(length-1);
+      const profile=Math.sin(Math.PI*t);
+      const alpha=profile*profile;
+      const radius=(width*0.5)*Math.pow(profile,0.5);
+      if(radius<0.25) continue;
+      const x=x0+(x1-x0)*t;
+      const y=y0+(y1-y0)*t;
+      d.beginPath();
+      d.arc(x,y,radius,0,2*Math.PI);
+      d.fillStyle=`rgba(${color[0]},${color[1]},${color[2]},${alpha})`;
+      d.fill();
+    }
+
+    ctx.drawImage(overlay,0,0);
+    return img;
+  }
+
+  _chordLayer(m,r,ca,cb,w){
+    const img=document.createElement('canvas');
+    img.width=this._S;
+    img.height=this._S;
+    const ctx=img.getContext('2d');
+    ctx.fillStyle='rgb(0,0,0)';
+    ctx.fillRect(0,0,this._S,this._S);
+
+    const pts=[];
+    for(let i=0;i<this.N;i++){
+      pts.push(this._pt(i,this.N,r,this.rot0));
+    }
+
+    for(let i=0;i<this.N;i++){
+      const col=lerp(ca,cb,i/this.N);
+      this._drawTaperedChord(img,pts[i],pts[(i*m)%this.N],col,w);
+    }
+    return img;
+  }
+
+  _seedFragmentPts(cx,cy,r,nCircles,rotation=0){
+    const circles=[[cx,cy,r]];
+    const nSurrounding=nCircles-1;
+    if(nSurrounding>0){
+      const step=2*Math.PI/nSurrounding;
+      for(let i=0;i<nSurrounding;i++){
+        const angle=i*step+rotation;
+        circles.push([cx+r*Math.cos(angle),cy+r*Math.sin(angle),r]);
+      }
+    }
+    return circles;
+  }
+
+  _drawSeedFragment(img,circles,col,lineW,fadeR,baseAlpha=0.55){
+    const overlay=document.createElement('canvas');
+    overlay.width=img.width;
+    overlay.height=img.height;
+    const d=overlay.getContext('2d');
+    const cx=this._cx,cy=this._cy;
+    const fadeStart=fadeR*0.70;
+    const fadeEnd=fadeR*1.00;
+
+    function _fade(px,py){
+      const dist=Math.hypot(px-cx,py-cy);
+      return 1.0-clamp((dist-fadeStart)/Math.max(1.0,fadeEnd-fadeStart),0,1);
+    }
+
+    for(const [x,y,r] of circles){
+      const f=_fade(x,y);
+      if(f<0.02) continue;
+      const tCol=lerp(col,COL.PALE,0.10);
+      const alpha=Math.round(baseAlpha*f*255);
+      d.beginPath();
+      d.arc(x,y,r,0,2*Math.PI);
+      d.strokeStyle=`rgba(${tCol[0]},${tCol[1]},${tCol[2]},${alpha/255})`;
+      d.lineWidth=lineW;
+      d.stroke();
+    }
+
+    for(let i=0;i<circles.length;i++){
+      for(let j=i+1;j<circles.length;j++){
+        const [x0,y0,r0]=circles[i],[x1,y1,r1]=circles[j];
+        const dC=Math.hypot(x1-x0,y1-y0);
+        if(dC>=r0+r1||dC<=Math.abs(r0-r1)) continue;
+        const a=(r0*r0-r1*r1+dC*dC)/(2*dC);
+        const hSq=r0*r0-a*a;
+        if(hSq<0) continue;
+        const h=Math.sqrt(hSq);
+        const xm=x0+a*(x1-x0)/dC,ym=y0+a*(y1-y0)/dC;
+        const rx=-(y1-y0)*(h/dC),ry=(x1-x0)*(h/dC);
+        const p1x=xm+rx,p1y=ym+ry,p2x=xm-rx,p2y=ym-ry;
+
+        const mx=(p1x+p2x)*0.5,my=(p1y+p2y)*0.5;
+        const f=_fade(mx,my);
+        if(f>=0.02){
+          const tCol=lerp(col,COL.ROSE,0.40);
+          const alpha=Math.round(baseAlpha*1.2*f*255);
+          d.beginPath();
+          d.moveTo(p1x,p1y);
+          d.lineTo(p2x,p2y);
+          d.strokeStyle=`rgba(${tCol[0]},${tCol[1]},${tCol[2]},${alpha/255})`;
+          d.lineWidth=lineW;
+          d.stroke();
+        }
+
+        for(const [px,py,ix,iy] of [[x0,y0,p1x,p1y],[x0,y0,p2x,p2y],[x1,y1,p1x,p1y],[x1,y1,p2x,p2y]]){
+          const mx_=(px+ix)*0.5,my_=(py+iy)*0.5;
+          const f_=_fade(mx_,my_);
+          if(f_<0.02) continue;
+          const tCol=lerp(col,COL.LAVENDER,0.30);
+          const alpha=Math.round(baseAlpha*0.55*f_*255);
+          d.beginPath();
+          d.moveTo(px,py);
+          d.lineTo(ix,iy);
+          d.strokeStyle=`rgba(${tCol[0]},${tCol[1]},${tCol[2]},${alpha/255})`;
+          d.lineWidth=Math.max(1,lineW-1);
+          d.stroke();
+        }
+      }
+    }
+
+    for(let i=0;i<circles.length;i++){
+      for(let j=i+1;j<circles.length;j++){
+        const [x0,y0,_]=circles[i],[x1,y1,__]=circles[j];
+        const mx_=(x0+x1)*0.5,my_=(y0+y1)*0.5;
+        const f_=_fade(mx_,my_);
+        if(f_<0.02) continue;
+        const tCol=lerp(col,COL.INDIGO,0.5);
+        const alpha=Math.round(baseAlpha*0.35*f_*255);
+        d.beginPath();
+        d.moveTo(x0,y0);
+        d.lineTo(x1,y1);
+        d.strokeStyle=`rgba(${tCol[0]},${tCol[1]},${tCol[2]},${alpha/255})`;
+        d.lineWidth=lineW;
+        d.stroke();
+      }
+    }
+
+    const ctx=img.getContext('2d');
+    ctx.globalCompositeOperation='source-over';
+    ctx.drawImage(overlay,0,0);
+    return img;
+  }
+
+  _mandalaLayer(){
+    const img=document.createElement('canvas');
+    img.width=this._S;img.height=this._S;
+    const ctx=img.getContext('2d');
+    ctx.fillStyle='rgb(0,0,0)';
+    ctx.fillRect(0,0,this._S,this._S);
+    const ringPal=[COL.COBALT,COL.VIOLET,COL.LAVENDER,COL.ROSE,COL.SCARLET];
+    const maxR=this._R*0.80;
+    const fragRBase=maxR*0.66;
+    const fragR=fragRBase*0.28;
+    const col=ringPal[2];
+    const nCircles=3+(this.sd[17]%6);
+
+    for(let s=0;s<this.sym;s++){
+      const angle=s*2*Math.PI/this.sym+this.rot0;
+      const ox=this._cx+fragRBase*Math.cos(angle);
+      const oy=this._cy+fragRBase*Math.sin(angle);
+      const inwardAngle=Math.atan2(this._cy-oy,this._cx-ox);
+
+      const circles=this._seedFragmentPts(ox,oy,fragR,nCircles,inwardAngle);
+      this._drawSeedFragment(img,circles,col,SSAA,this._R,0.55);
+    }
+    return img;
+  }
+
+  _buildSigilWheel(cx,cy,R){
+    const rawConsonants=[];
+    for(const ch of this.phrase.toUpperCase()){
+      if(VOWELS.has(ch)||!/^[A-Z]$/.test(ch)) continue;
+      rawConsonants.push(ch);
+    }
+    if(!rawConsonants.length) return null;
+
+    const unique=[],seen=new Set();
+    for(const ch of rawConsonants){
+      if(!seen.has(ch)){seen.add(ch);unique.push(ch);}
+    }
+
+    const n=unique.length;
+    const baseRot=this.rot0+(this.sd[29]/255.0)*2*Math.PI;
+
+    let pts;
+    if(n===1) pts=[[cx,cy]];
+    else{
+      pts=[];
+      for(let i=0;i<n;i++){
+        const a=baseRot+2*Math.PI*i/n-Math.PI/2;
+        pts.push([cx+R*Math.cos(a),cy+R*Math.sin(a)]);
+      }
+    }
+
+    const indexOf={};
+    unique.forEach((ch,i)=>indexOf[ch]=i);
+    const path=rawConsonants.map(ch=>indexOf[ch]);
+    return {pts,path,n,cx,cy,R};
+  }
+
+  _drawSigilWheel(img,wheel,col,lineW,fadeR,baseAlpha=0.95){
+    const {pts,path,n}=wheel;
+    const {cx,cy,R}=wheel;
+
+    const fadeStart=fadeR*0.50;
+    const fadeEnd=fadeR*1.30;
+
+    function _fade(px,py){
+      const dist=Math.hypot(px-cx,py-cy);
+      return 1.0-clamp((dist-fadeStart)/Math.max(1.0,fadeEnd-fadeStart),0,1);
+    }
+
+    const glow=document.createElement('canvas');
+    glow.width=img.width;
+    glow.height=img.height;
+    const sharp=document.createElement('canvas');
+    sharp.width=img.width;
+    sharp.height=img.height;
+    const gd=glow.getContext('2d');
+    const sd=sharp.getContext('2d');
+
+    function _stroke(p0,p1,wGlow,wSharp,aGlow=0.45,aSharp=1.0){
+      const mx=(p0[0]+p1[0])/2,my=(p0[1]+p1[1])/2;
+      const f=_fade(mx,my);
+      if(f<0.02) return;
+      gd.beginPath();
+      gd.moveTo(p0[0],p0[1]);
+      gd.lineTo(p1[0],p1[1]);
+      gd.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.round(baseAlpha*aGlow*f*255)/255})`;
+      gd.lineWidth=wGlow;
+      gd.stroke();
+
+      sd.beginPath();
+      sd.moveTo(p0[0],p0[1]);
+      sd.lineTo(p1[0],p1[1]);
+      sd.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.round(baseAlpha*aSharp*f*255)/255})`;
+      sd.lineWidth=wSharp;
+      sd.stroke();
+    }
+
+    function _ring(cxp,cyp,r,wGlow,wSharp,aGlow=0.45,aSharp=1.0){
+      const f=_fade(cxp,cyp);
+      if(f<0.02) return;
+      gd.beginPath();
+      gd.arc(cxp,cyp,r,0,2*Math.PI);
+      gd.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.round(baseAlpha*aGlow*f*255)/255})`;
+      gd.lineWidth=wGlow;
+      gd.stroke();
+
+      sd.beginPath();
+      sd.arc(cxp,cyp,r,0,2*Math.PI);
+      sd.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${Math.round(baseAlpha*aSharp*f*255)/255})`;
+      sd.lineWidth=wSharp;
+      sd.stroke();
+    }
+
+    function _glowingMark(drawFn,passes){
+      const ctx=img.getContext('2d');
+      for(const [blurRadius,alphaScale] of passes){
+        const layer=document.createElement('canvas');
+        layer.width=img.width;
+        layer.height=img.height;
+        const ld=layer.getContext('2d');
+        drawFn(ld,alphaScale);
+        if(blurRadius>0){
+          const temp=document.createElement('canvas');
+          temp.width=layer.width;
+          temp.height=layer.height;
+          const tCtx=temp.getContext('2d');
+          tCtx.filter=`blur(${blurRadius}px)`;
+          tCtx.drawImage(layer,0,0);
+          ctx.globalCompositeOperation='source-over';
+          ctx.drawImage(temp,0,0);
+        }else{
+          ctx.globalCompositeOperation='source-over';
+          ctx.drawImage(layer,0,0);
+        }
+      }
+    }
+
+    const MARK_PASSES=[
+      [lineW*6,0.35],
+      [lineW*4,0.55],
+      [lineW*2,0.80],
+      [0,1.00],
+    ];
+
+    const startPt=pts[path[0]];
+    const ringR=R*0.15;
+
+    for(let i=0;i<path.length-1;i++){
+      let a=pts[path[i]],b=pts[path[i+1]];
+      if(path[i]===path[i+1]) continue;
+      if(a===startPt){
+        const dx_=b[0]-a[0],dy_=b[1]-a[1];
+        const segLen=Math.hypot(dx_,dy_);
+        if(segLen>1e-6){
+          const ux=dx_/segLen,uy=dy_/segLen;
+          a=[a[0]+ux*ringR,a[1]+uy*ringR];
+        }
+      }
+      _stroke(a,b,lineW*4,lineW);
+    }
+
+    for(let i=0;i<path.length-1;i++){
+      if(path[i]!==path[i+1]) continue;
+      const [px,py]=pts[path[i]];
+      const loopR=R*0.045;
+      const ang=n>1?Math.atan2(py-cy,px-cx):this.rot0;
+      const lx=px+loopR*Math.cos(ang),ly=py+loopR*Math.sin(ang);
+      _ring(lx,ly,loopR,Math.max(1,lineW*1.5),Math.max(1,lineW*0.75),0.25,0.55);
+    }
+
+    const glowBlurred=gaussianBlur(glow,lineW*3);
+    const ctx=img.getContext('2d');
+    ctx.globalCompositeOperation='source-over';
+    ctx.drawImage(glowBlurred,0,0);
+    ctx.drawImage(sharp,0,0);
+
+    const [sx,sy]=startPt;
+    _glowingMark((d,alphaScale)=>{
+      const f=_fade(sx,sy);
+      if(f<0.02) return;
+      const a=Math.round(255*alphaScale*f);
+      d.beginPath();
+      d.arc(sx,sy,ringR,0,2*Math.PI);
+      d.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${a/255})`;
+      d.lineWidth=lineW;
+      d.stroke();
+    },MARK_PASSES);
+
+    const [ex,ey]=pts[path[path.length-1]];
+    let dx,dy;
+    if(n>1&&path.length>=2&&path[path.length-1]!==path[path.length-2]){
+      const [px,py]=pts[path[path.length-2]];
+      const ddx=ex-px,ddy=ey-py;
+      const segLen=Math.hypot(ddx,ddy);
+      if(segLen<1e-6){dx=ex/R;dy=ey/R;}
+      else{dx=ddx/segLen;dy=ddy/segLen;}
+    }else if(n>1){dx=(ex-cx)/R;dy=(ey-cy)/R;}
+    else{dx=Math.cos(this.rot0);dy=Math.sin(this.rot0);}
+
+    const stemLen=R*0.22;
+    const stemX=ex+dx*stemLen,stemY=ey+dy*stemLen;
+    const perpX=-dy,perpY=dx;
+    const barHalf=R*0.14;
+    const cap0=[stemX-perpX*barHalf,stemY-perpY*barHalf];
+    const cap1=[stemX+perpX*barHalf,stemY+perpY*barHalf];
+
+    _glowingMark((d,alphaScale)=>{
+      const f=_fade(ex,ey);
+      if(f<0.02) return;
+      const a=Math.round(255*alphaScale*f);
+      d.beginPath();
+      d.moveTo(ex,ey);
+      d.lineTo(stemX,stemY);
+      d.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${a/255})`;
+      d.lineWidth=lineW;
+      d.stroke();
+      d.beginPath();
+      d.moveTo(cap0[0],cap0[1]);
+      d.lineTo(cap1[0],cap1[1]);
+      d.strokeStyle=`rgba(${col[0]},${col[1]},${col[2]},${a/255})`;
+      d.lineWidth=lineW;
+      d.stroke();
+    },MARK_PASSES);
+
+    return img;
+  }
+
+  _centreLayer(){
+    const img=document.createElement('canvas');
+    img.width=this._S;img.height=this._S;
+    const d=img.getContext('2d');
+    d.fillStyle='rgb(0,0,0)';
+    d.fillRect(0,0,this._S,this._S);
+    const s=SSAA;
+    const cr=this._R*0.10;
+
+    for(const [col,scl] of [[COL.SCARLET,1.00],[COL.INDIGO,0.72],[COL.VIOLET,0.50]]){
+      const r=cr*scl;
+      d.beginPath();
+      d.arc(this._cx,this._cy,r,0,2*Math.PI);
+      d.strokeStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+      d.lineWidth=s*2;
+      d.stroke();
+    }
+
+    for(let k=0;k<4;k++){
+      const a=k*Math.PI/2+this.rot0;
+      const x2=this._cx+cr*0.52*Math.cos(a);
+      const y2=this._cy+cr*0.52*Math.sin(a);
+      d.beginPath();
+      d.moveTo(this._cx,this._cy);
+      d.lineTo(x2,y2);
+      d.strokeStyle=`rgb(${COL.INDIGO[0]},${COL.INDIGO[1]},${COL.INDIGO[2]})`;
+      d.lineWidth=s;
+      d.stroke();
+    }
+
+    const wheel=this._buildSigilWheel(this._cx,this._cy,cr*0.95);
+    if(wheel){
+      this._drawSigilWheel(img,wheel,[255,255,255],s*2,cr,1.0);
+    }else{
+      const r=cr*0.18;
+      d.beginPath();
+      d.arc(this._cx,this._cy,r,0,2*Math.PI);
+      d.fillStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+      d.fill();
+      d.beginPath();
+      d.arc(this._cx,this._cy,r*1.8,0,2*Math.PI);
+      d.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+      d.lineWidth=s;
+      d.stroke();
+    }
+    return img;
+  }
+
+  // ── Ring layer: thin sharp lines only, NO glow blur ──────
+  _ringLayer(){
+    const img=document.createElement('canvas');
+    img.width=this._S;img.height=this._S;
+    const s=SSAA;
+    const c1=this.ringCol1;
+    const r=this._R*1.078;
+    const col=c1;
+
+    const ctx=img.getContext('2d');
+    ctx.fillStyle='rgb(0,0,0)';
+    ctx.fillRect(0,0,this._S,this._S);
+
+    // Single thin sharp ring line — no glow passes
+    ctx.beginPath();
+    ctx.arc(this._cx,this._cy,r,0,2*Math.PI);
+    ctx.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+    ctx.lineWidth=s*2;
+    ctx.stroke();
+
+    // Tri-dot symbols — drawn as sharp dots, no blur
+    const nGlyphs=this.chaosGlyphs.length;
+    if(nGlyphs>0){
+      const symR=r*0.88;
+      const targetSize=Math.floor(this._S*0.035);
+
+      for(let idx=0;idx<nGlyphs;idx++){
+        const angle=idx*2*Math.PI/nGlyphs+this.rot0-Math.PI/2;
+        const gx=this._cx+symR*Math.cos(angle);
+        const gy=this._cy+symR*Math.sin(angle);
+        const inwardAngle=angle+Math.PI;
+
+        const t=idx/Math.max(nGlyphs,1);
+        const cycle=0.5+0.5*Math.sin(2*Math.PI*t+this.rot0);
+        const symCol=lerp(COL.LAVENDER,COL.SCARLET,cycle);
+
+        const triR=targetSize*0.38;
+        const dotR=Math.max(2,Math.floor(targetSize*0.05));
+
+        for(let k=0;k<3;k++){
+          const a=inwardAngle+k*2*Math.PI/3;
+          const dx=gx+triR*Math.cos(a);
+          const dy=gy+triR*Math.sin(a);
+
+          // Sharp dot only — no glow
+          ctx.beginPath();
+          ctx.arc(dx,dy,dotR,0,2*Math.PI);
+          ctx.fillStyle=`rgb(${symCol[0]},${symCol[1]},${symCol[2]})`;
+          ctx.fill();
+        }
+      }
+    }
+    return img;
+  }
+
+  // ── Glyph ring: render glyphs as masks with proper glow ──
+  _glyphRingLayer(){
+    const img=document.createElement('canvas');
+    img.width=this._S;img.height=this._S;
+    const glyphs=this.chaosGlyphs;
+    if(!glyphs.length) return img;
+
+    const d=img.getContext('2d');
+    d.fillStyle='rgb(0,0,0)';
+    d.fillRect(0,0,this._S,this._S);
+    const n=glyphs.length;
+    const innerRingR=this._R*1.078;
+    const outerRingR=this._R*1.315;
+    const rRing=(innerRingR+outerRingR)/2.0;
+
+    const fontSize=Math.max(12,Math.floor(this._S*0.028));
+    const targetSize=Math.floor(this._S*0.035);
+
+    const glyphMasks={};
+    for(const glyph of glyphs){
+      if(glyphMasks[glyph]) continue;
+      const mask=createGlyphMask(glyph,fontSize);
+      if(mask) glyphMasks[glyph]=mask;
+    }
+
+    const glow2Overlay=document.createElement('canvas');
+    glow2Overlay.width=this._S;glow2Overlay.height=this._S;
+    const glowOverlay=document.createElement('canvas');
+    glowOverlay.width=this._S;glowOverlay.height=this._S;
+    const whiteOverlay=document.createElement('canvas');
+    whiteOverlay.width=this._S;whiteOverlay.height=this._S;
+    const mainOverlay=document.createElement('canvas');
+    mainOverlay.width=this._S;mainOverlay.height=this._S;
+
+    for(let idx=0;idx<n;idx++){
+      const glyph=glyphs[idx];
+      if(!glyphMasks[glyph]) continue;
+
+      const angle=idx*2*Math.PI/n+this.rot0-Math.PI/2;
+      const gx=this._cx+rRing*Math.cos(angle);
+      const gy=this._cy+rRing*Math.sin(angle);
+
+      const t=idx/n;
+      const cycle=0.5+0.5*Math.sin(2*Math.PI*t+this.rot0);
+      const col=lerp(COL.LAVENDER,COL.SCARLET,cycle);
+
+      const mask=glyphMasks[glyph];
+      const gxOff=Math.floor(gx-targetSize/2);
+      const gyOff=Math.floor(gy-targetSize/2);
+
+      // Layer 1: wide white haze
+      let haze=gaussianBlur(cloneCanvas(mask),fontSize*10.0);
+      const hCtx=haze.getContext('2d');
+      const hData=hCtx.getImageData(0,0,haze.width,haze.height);
+      for(let i=3;i<hData.data.length;i+=4){
+        hData.data[i]=Math.min(255,hData.data[i]*3.0);
+      }
+      hCtx.putImageData(hData,0,0);
+      const g2Ctx=glow2Overlay.getContext('2d');
+      g2Ctx.globalCompositeOperation='source-over';
+      g2Ctx.drawImage(haze,gxOff,gyOff);
+
+      // Layer 2: tight white glow
+      let glow=gaussianBlur(cloneCanvas(mask),fontSize*4.5);
+      const gCtx=glow.getContext('2d');
+      const gData=gCtx.getImageData(0,0,glow.width,glow.height);
+      for(let i=3;i<gData.data.length;i+=4){
+        gData.data[i]=Math.min(255,gData.data[i]*3.0);
+      }
+      gCtx.putImageData(gData,0,0);
+      const goCtx=glowOverlay.getContext('2d');
+      goCtx.globalCompositeOperation='source-over';
+      goCtx.drawImage(glow,gxOff,gyOff);
+
+      // Layer 3: white-hot bloom core
+      let bloom=gaussianBlur(cloneCanvas(mask),fontSize*6.0);
+      const bCtx=bloom.getContext('2d');
+      const bData=bCtx.getImageData(0,0,bloom.width,bloom.height);
+      for(let i=3;i<bData.data.length;i+=4){
+        bData.data[i]=Math.min(255,bData.data[i]*3.5);
+      }
+      bCtx.putImageData(bData,0,0);
+      const wCtx=whiteOverlay.getContext('2d');
+      wCtx.globalCompositeOperation='source-over';
+      wCtx.drawImage(bloom,gxOff,gyOff);
+
+      // Layer 4: sharp colored face
+      const face=document.createElement('canvas');
+      face.width=targetSize;face.height=targetSize;
+      const fCtx=face.getContext('2d');
+      fCtx.fillStyle=`rgb(${col[0]},${col[1]},${col[2]})`;
+      fCtx.fillRect(0,0,targetSize,targetSize);
+      fCtx.globalCompositeOperation='destination-in';
+      fCtx.drawImage(mask,0,0);
+
+      const mCtx=mainOverlay.getContext('2d');
+      mCtx.globalCompositeOperation='source-over';
+      mCtx.drawImage(face,gxOff,gyOff);
+    }
+
+    d.globalCompositeOperation='source-over';
+    d.drawImage(glow2Overlay,0,0);
+    d.globalCompositeOperation='source-over';
+    d.drawImage(glowOverlay,0,0);
+    d.globalCompositeOperation='source-over';
+    d.drawImage(whiteOverlay,0,0);
+    d.globalCompositeOperation='source-over';
+    d.drawImage(mainOverlay,0,0);
+
+    // Outermost ring — thin sharp line only, NO glow blur
+    const r=outerRingR;
+    d.beginPath();
+    d.arc(this._cx,this._cy,r,0,2*Math.PI);
+    d.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+    d.lineWidth=SSAA*2;
+    d.stroke();
+
+    return img;
+  }
+
+  async render(onProgress){
+    const report=(frac,label)=>{ if(onProgress) onProgress(frac,label); };
+    const yieldFrame=()=>new Promise(r=>setTimeout(r,0));
+
+    const CHORD_SPEC=[
+      [COL.INDIGO,COL.VIOLET,this.m_vals[0],1.000],
+      [COL.CRIMSON,COL.SCARLET,this.m_vals[1],0.920],
+      [COL.MIDNIGHT,COL.COBALT,this.m_vals[2],0.840],
+    ];
+    const W=SSAA;
+
+    let canvas=document.createElement('canvas');
+    canvas.width=this._S;
+    canvas.height=this._S;
+    let ctx=canvas.getContext('2d');
+    ctx.fillStyle=`rgb(${COL.BG[0]},${COL.BG[1]},${COL.BG[2]})`;
+    ctx.fillRect(0,0,this._S,this._S);
+
+    const steps=[
+      ...CHORD_SPEC.map((spec,i)=>({weight:2,label:`Weaving chord lattice ${i+1}/3\u2026`,fn:()=>{
+        const [ca,cb,m,rs]=spec;
+        let raw=this._chordLayer(m,this._R*rs,ca,cb,W*2);
+        let glow=gaussianBlur(raw,W*10);
+        canvas=screenBlend(canvas,glow);
+      }})),
+      ...CHORD_SPEC.map((spec,i)=>({weight:1,label:`Sharpening chord lattice ${i+1}/3\u2026`,fn:()=>{
+        const [ca,cb,m,rs]=spec;
+        let raw=this._chordLayer(m,this._R*rs,ca,cb,W);
+        canvas=screenBlend(canvas,raw);
+      }})),
+      {weight:2,label:'Tracing the mandala\u2026',fn:()=>{ canvas=screenBlend(canvas,this._mandalaLayer()); }},
+      {weight:1,label:'Drawing the rings\u2026',fn:()=>{ canvas=screenBlend(canvas,this._ringLayer()); }},
+      {weight:4,label:'Inscribing the outer runes\u2026',fn:()=>{ canvas=screenBlend(canvas,this._glyphRingLayer()); }},
+      {weight:1,label:'Setting the centre mark\u2026',fn:()=>{ canvas=screenBlend(canvas,this._centreLayer()); }},
+      {weight:2,label:'Casting the final bloom\u2026',fn:()=>{
+        let bloom=gaussianBlur(canvas,W);
+        const bCtx=bloom.getContext('2d');
+        const bData=bCtx.getImageData(0,0,this._S,this._S);
+        const cData=ctx.getImageData(0,0,this._S,this._S);
+        for(let i=0;i<cData.data.length;i+=4){
+          for(let c=0;c<3;c++){
+            cData.data[i+c]=Math.min(255,Math.round(cData.data[i+c]+bData.data[i+c]*0.28));
+          }
+        }
+        ctx.putImageData(cData,0,0);
+      }},
+      {weight:1,label:'Applying the vignette\u2026',fn:()=>{ applyVignette(canvas,this._cx,this._cy,this._S*0.56); }},
+    ];
+
+    const totalWeight=steps.reduce((s,st)=>s+st.weight,0);
+    let done=0;
+    report(0,'Beginning the forge\u2026');
+    await yieldFrame();
+    for(const step of steps){
+      step.fn();
+      done+=step.weight;
+      report(done/totalWeight,step.label);
+      await yieldFrame();
+    }
+
+    const final=document.createElement('canvas');
+    final.width=this.imgSize;
+    final.height=this.imgSize;
+    const fCtx=final.getContext('2d');
+    fCtx.imageSmoothingEnabled=true;
+    fCtx.imageSmoothingQuality='high';
+    fCtx.drawImage(canvas,0,0,this.imgSize,this.imgSize);
+
+    report(1,'Sigil complete');
+    return final;
+  }
+}
+
+// ============================================================
+// UI Wiring
+// ============================================================
+const phraseInput=document.getElementById('phraseInput');
+const forgeBtn=document.getElementById('forgeBtn');
+const resolutionSlider=document.getElementById('resolutionSlider');
+const resolutionVal=document.getElementById('resolutionVal');
+resolutionSlider.addEventListener('input',()=>{
+  resolutionVal.textContent=`${resolutionSlider.value} \u00D7 ${resolutionSlider.value} px`;
+});
+const canvasWrap=document.getElementById('canvasWrap');
+const sigilCanvas=document.getElementById('sigilCanvas');
+const placeholder=document.getElementById('placeholder');
+const shimmer=document.getElementById('shimmer');
+const forgeProgress=document.getElementById('forgeProgress');
+const forgeProgressLabel=document.getElementById('forgeProgressLabel');
+const forgeProgressFill=document.getElementById('forgeProgressFill');
+const forgeProgressPct=document.getElementById('forgeProgressPct');
+function updateForgeProgress(frac,label){
+  const pct=Math.round(clamp(frac,0,1)*100);
+  forgeProgressFill.style.width=pct+'%';
+  forgeProgressPct.textContent=pct+'%';
+  if(label) forgeProgressLabel.textContent=label;
+}
+const actions=document.getElementById('actions');
+const downloadBtn=document.getElementById('downloadBtn');
+const copyBtn=document.getElementById('copyBtn');
+const newBtn=document.getElementById('newBtn');
+const glyphPreview=document.getElementById('glyphPreview');
+const infoPanel=document.getElementById('infoPanel');
+
+let currentForge=null;
+let currentSigil=null;
+
+function updateInfoPanel(forge){
+  document.getElementById('infoPhrase').textContent=forge.phrase;
+
+  const pathStr=forge.rawConsonants.map((ch,i)=>{
+    return ch + (i<forge.rawConsonants.length-1?' \u2192 ':'')
+  }).join('');
+  document.getElementById('infoPath').textContent=pathStr||'\u2014';
+
+  document.getElementById('infoGlyphs').textContent=forge.chaosGlyphs.join('  ')||'\u2014';
+  document.getElementById('infoLattice').textContent=forge.N;
+  document.getElementById('infoMultipliers').textContent=forge.m_vals.join(' \u00B7 ');
+  document.getElementById('infoRings').textContent=forge.rings;
+  document.getElementById('infoDepth').textContent=forge.depth;
+
+  const rotDeg=(forge.rot0*180/Math.PI).toFixed(1);
+  document.getElementById('infoRotation').textContent=rotDeg+'\u00B0';
+
+  const spinPct=Math.round(forge.spin*100);
+  document.getElementById('infoSpin').textContent=spinPct+'%';
+}
+
+function doForge(){
+  const phrase=phraseInput.value.trim();
+  if(!phrase){
+    phraseInput.focus();
+    phraseInput.style.borderColor='var(--crimson)';
+    setTimeout(()=>phraseInput.style.borderColor='',600);
+    return;
+  }
+  shimmer.classList.add('active');
+  placeholder.classList.add('hidden');
+  actions.classList.remove('visible');
+  infoPanel.classList.remove('visible');
+  glyphPreview.classList.remove('visible');
+  forgeBtn.disabled=true;
+  resolutionSlider.disabled=true;
+  updateForgeProgress(0,'Beginning the forge\u2026');
+  forgeProgress.classList.add('active');
+
+  const ready=(document.fonts&&document.fonts.ready)?document.fonts.ready:Promise.resolve();
+  ready.then(()=>new Promise(res=>setTimeout(res,100))).then(async ()=>{
+    try{
+      const imgSize=parseInt(resolutionSlider.value,10)||1000;
+      currentForge=new SigilForge(phrase,imgSize);
+      currentSigil=await currentForge.render((frac,label)=>updateForgeProgress(frac,label));
+
+      const dpr=window.devicePixelRatio||1;
+      const rect=canvasWrap.getBoundingClientRect();
+      sigilCanvas.width=Math.round(rect.width*dpr);
+      sigilCanvas.height=Math.round(rect.height*dpr);
+      const ctx=sigilCanvas.getContext('2d');
+      ctx.imageSmoothingEnabled=true;
+      ctx.imageSmoothingQuality='high';
+      ctx.drawImage(currentSigil,0,0,sigilCanvas.width,sigilCanvas.height);
+
+      updateInfoPanel(currentForge);
+
+      if(currentForge.chaosGlyphs.length>0){
+        glyphPreview.textContent=currentForge.chaosGlyphs.join('  ');
+        glyphPreview.classList.add('visible');
+      }
+
+      shimmer.classList.remove('active');
+      forgeProgress.classList.remove('active');
+      actions.classList.add('visible');
+      infoPanel.classList.add('visible');
+    }catch(e){
+      console.error('Forge error:',e);
+      shimmer.classList.remove('active');
+      forgeProgress.classList.remove('active');
+      placeholder.classList.remove('hidden');
+      alert('Error forging sigil: '+e.message);
+    }
+    forgeBtn.disabled=false;
+    resolutionSlider.disabled=false;
+  });
+}
+
+forgeBtn.addEventListener('click',doForge);
+phraseInput.addEventListener('keydown',e=>{if(e.key==='Enter')doForge();});
+
+downloadBtn.addEventListener('click',()=>{
+  if(!currentSigil) return;
+  const link=document.createElement('a');
+  const safeName=phraseInput.value.trim().toLowerCase().replace(/\s+/g,'-').replace(/[^a-z0-9-]/g,'');
+  link.download=`sigil-${safeName||'untitled'}.png`;
+  link.href=currentSigil.toDataURL('image/png');
+  link.click();
+});
+
+copyBtn.addEventListener('click',async ()=>{
+  if(!currentSigil) return;
+  try{
+    const blob=await new Promise(res=>currentSigil.toBlob(res,'image/png'));
+    await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+    copyBtn.classList.add('success');
+    copyBtn.innerHTML=`<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg> Copied`;
+    setTimeout(()=>{
+      copyBtn.classList.remove('success');
+      copyBtn.innerHTML=`<svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy to Clipboard`;
+    },2000);
+  }catch(e){
+    alert('Clipboard copy failed. Use Download instead.');
+  }
+});
+
+newBtn.addEventListener('click',()=>{
+  phraseInput.value='';
+  phraseInput.focus();
+  const ctx=sigilCanvas.getContext('2d');
+  ctx.clearRect(0,0,sigilCanvas.width,sigilCanvas.height);
+  placeholder.classList.remove('hidden');
+  actions.classList.remove('visible');
+  infoPanel.classList.remove('visible');
+  glyphPreview.classList.remove('visible');
+  currentSigil=null;
+  currentForge=null;
+});
+
+phraseInput.focus();
+</script>
+</body>
+</html>
