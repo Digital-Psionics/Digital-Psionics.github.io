@@ -584,10 +584,10 @@ function applyHex(hex) {
 
     const b = (i) => byteAt(bytes, i);
 
-    target.level      = 1.0 + (b(0) / 255) * 7.0;               // 1 - 8
+    target.level      = 2.5 + (b(0) / 255) * 5.5;                // 2.5 - 8 (floor keeps the fractal from thinning to near-black)
     target.symmetry   = 2 + Math.floor((b(1) / 255) * 22);      // 2 - 24
-    target.speed       = 0.03 + (b(2) / 255) * 0.19;             // 0.03 - 0.22 (calm base drift)
-    target.intensity  = 0.6 + (b(3) / 255) * 0.7;                 // 0.6 - 1.3
+    target.speed       = 0.03 + (b(2) / 255) * 0.13;             // 0.03 - 0.16 (calm base drift, capped below strobe threshold)
+    target.intensity  = 0.85 + (b(3) / 255) * 0.55;               // 0.85 - 1.4 (floor keeps luminance from dipping too dark)
     target.iterations = 1 + Math.floor((b(4) / 255) * 2.999);   // 1 - 3
     target.hueShift   = (b(6) / 255) * Math.PI * 8;               // wraps several cycles
 
@@ -599,16 +599,16 @@ function applyHex(hex) {
 
 function updateReadingsUI() {
     document.getElementById('r-level').textContent = target.level.toFixed(2);
-    document.getElementById('f-level').style.width = ((target.level - 1) / 7 * 100) + '%';
+    document.getElementById('f-level').style.width = ((target.level - 2.5) / 5.5 * 100) + '%';
 
     document.getElementById('r-sym').textContent = target.symmetry;
     document.getElementById('f-sym').style.width = ((target.symmetry - 2) / 22 * 100) + '%';
 
     document.getElementById('r-speed').textContent = target.speed.toFixed(2);
-    document.getElementById('f-speed').style.width = ((target.speed - 0.03) / 0.19 * 100) + '%';
+    document.getElementById('f-speed').style.width = ((target.speed - 0.03) / 0.13 * 100) + '%';
 
     document.getElementById('r-lum').textContent = target.intensity.toFixed(2);
-    document.getElementById('f-lum').style.width = ((target.intensity - 0.6) / 0.7 * 100) + '%';
+    document.getElementById('f-lum').style.width = ((target.intensity - 0.85) / 0.55 * 100) + '%';
 
     const forms = ['—', 'Glow', 'Laser', 'Wave'];
     document.getElementById('r-form').textContent = forms[target.iterations] || target.iterations;
@@ -652,7 +652,7 @@ holdBtn.addEventListener('click', () => {
 });
 
 // ---------- ANIMATION LOOP ----------
-const MAX_SHADER_SPEED = 0.22; // hard cap so the kaleidoscope motion never races, even with the slider maxed
+const MAX_SHADER_SPEED = 0.16; // hard cap so the kaleidoscope motion never races or strobes, even with the slider maxed
 
 function animate() {
     requestAnimationFrame(animate);
