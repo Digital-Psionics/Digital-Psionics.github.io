@@ -53,12 +53,13 @@ function onWindowResize() {
 const grimoire = document.getElementById('grimoire');
 const toggle = document.getElementById('toggle');
 const markEl = document.getElementById('mark');
-const audioToggleEl = document.getElementById('audio-toggle');
+const volumeControlEl = document.getElementById('volume-control');
+const fullscreenToggleEl = document.getElementById('fullscreen-toggle');
 
-// The title mark, the settings gear, and the volume toggle all live on the
-// same "chrome" — they should appear together when the mouse moves and fade
-// together after a moment of stillness.
-const chromeEls = [markEl, toggle, audioToggleEl];
+// The title mark, the settings gear, the volume control, and the fullscreen
+// toggle all live on the same "chrome" — they should appear together when
+// the mouse moves and fade together after a moment of stillness.
+const chromeEls = [markEl, toggle, volumeControlEl, fullscreenToggleEl];
 
 let markHideTimer = null;
 const MARK_IDLE_MS = 2200;
@@ -85,6 +86,31 @@ toggle.addEventListener('click', () => {
     } else {
         scheduleMarkHide();
     }
+});
+
+// ---------- FULLSCREEN ----------
+function isFullscreen() {
+    return !!(document.fullscreenElement || document.webkitFullscreenElement);
+}
+
+function updateFullscreenIcon() {
+    fullscreenToggleEl.classList.toggle('on', isFullscreen());
+    fullscreenToggleEl.title = isFullscreen() ? 'Exit fullscreen' : 'Enter fullscreen';
+}
+
+fullscreenToggleEl.addEventListener('click', () => {
+    const el = document.documentElement;
+    if (!isFullscreen()) {
+        if (el.requestFullscreen) el.requestFullscreen();
+        else if (el.webkitRequestFullscreen) el.webkitRequestFullscreen();
+    } else {
+        if (document.exitFullscreen) document.exitFullscreen();
+        else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    }
+});
+
+['fullscreenchange', 'webkitfullscreenchange'].forEach(evt => {
+    document.addEventListener(evt, updateFullscreenIcon);
 });
 
 // touching / moving over the glass reveals the mark; releasing lets it fade

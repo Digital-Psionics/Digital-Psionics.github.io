@@ -113,9 +113,9 @@
         transition:transform 1.2s ease;}
     #toggle.open svg{transform:rotate(135deg);}
 
-    /* audio toggle */
-    #audio-toggle{
-        position:fixed;top:22px;right:80px;z-index:30;
+    /* fullscreen toggle */
+    #fullscreen-toggle{
+        position:fixed;top:22px;right:134px;z-index:30;
         width:46px;height:46px;border-radius:50%;
         border:1px solid var(--hairline);
         background:rgba(5,4,6,0.55);backdrop-filter:blur(6px);
@@ -123,12 +123,65 @@
         cursor:pointer;transition:background .35s ease,box-shadow .35s ease,border-color .35s ease,opacity 1.6s ease;
         opacity:0;
     }
-    #audio-toggle.visible{opacity:1;transition:background .35s ease,box-shadow .35s ease,border-color .35s ease,opacity .5s ease;}
+    #fullscreen-toggle.visible{opacity:1;transition:background .35s ease,box-shadow .35s ease,border-color .35s ease,opacity .5s ease;}
+    #fullscreen-toggle:hover{background:rgba(184,148,76,0.12);box-shadow:0 0 18px rgba(184,148,76,0.25);}
+    #fullscreen-toggle svg{width:20px;height:20px;stroke:var(--gold);fill:none;stroke-width:1.2;}
+    #fullscreen-toggle .icon-exit{display:none;}
+    #fullscreen-toggle.on .icon-enter{display:none;}
+    #fullscreen-toggle.on .icon-exit{display:block;}
+
+    /* volume control (wraps the audio toggle + hover slider) */
+    #volume-control{
+        position:fixed;top:22px;right:80px;z-index:30;
+        opacity:0;transition:opacity 1.6s ease;
+    }
+    #volume-control.visible{opacity:1;transition:opacity .5s ease;}
+    #audio-toggle{
+        position:relative;
+        width:46px;height:46px;border-radius:50%;
+        border:1px solid var(--hairline);
+        background:rgba(5,4,6,0.55);backdrop-filter:blur(6px);
+        display:flex;align-items:center;justify-content:center;
+        cursor:pointer;transition:background .35s ease,box-shadow .35s ease,border-color .35s ease;
+    }
     #audio-toggle:hover{background:rgba(184,148,76,0.12);box-shadow:0 0 18px rgba(184,148,76,0.25);}
     #audio-toggle svg{width:20px;height:20px;stroke:var(--gold);fill:none;stroke-width:1.2;}
     #audio-toggle .wave{opacity:0.35;transition:opacity .4s ease;}
     #audio-toggle.on .wave{opacity:1;}
     #audio-toggle.on{border-color:var(--gold);box-shadow:0 0 14px rgba(184,148,76,0.3);}
+
+    #volume-slider-wrap{
+        position:absolute;top:54px;left:50%;
+        width:40px;height:128px;
+        display:flex;align-items:center;justify-content:center;
+        border-radius:20px;border:1px solid var(--hairline);
+        background:rgba(5,4,6,0.85);backdrop-filter:blur(6px);
+        opacity:0;pointer-events:none;
+        transform:translateX(-50%) translateY(-6px);
+        transition:opacity .25s ease, transform .25s ease;
+    }
+    #volume-control:hover #volume-slider-wrap,
+    #volume-control:focus-within #volume-slider-wrap{
+        opacity:1;pointer-events:auto;
+        transform:translateX(-50%) translateY(0);
+    }
+    #volume-slider{
+        -webkit-appearance:none;appearance:none;
+        width:96px;height:2px;background:rgba(255,255,255,0.12);border-radius:1px;outline:none;
+        transform:rotate(-90deg);
+        cursor:pointer;
+    }
+    #volume-slider::-webkit-slider-thumb{
+        -webkit-appearance:none;appearance:none;width:13px;height:13px;border-radius:50%;
+        background:var(--gold-bright);border:1px solid var(--gold);cursor:pointer;
+        box-shadow:0 0 8px rgba(230,200,118,0.5);transition:transform .2s ease;
+    }
+    #volume-slider::-webkit-slider-thumb:hover{transform:scale(1.15);}
+    #volume-slider::-moz-range-thumb{
+        width:13px;height:13px;border-radius:50%;background:var(--gold-bright);
+        border:1px solid var(--gold);cursor:pointer;box-shadow:0 0 8px rgba(230,200,118,0.5);
+    }
+    #volume-slider::-moz-range-track{height:2px;background:rgba(255,255,255,0.12);border-radius:1px;}
 
     /* panel */
     #grimoire{
@@ -235,12 +288,22 @@
     <svg viewBox="0 0 24 24"><path d="M12 2 L14.5 9.5 L22 12 L14.5 14.5 L12 22 L9.5 14.5 L2 12 L9.5 9.5 Z"/></svg>
 </div>
 
-<div id="audio-toggle" title="Toggle the oracle's hum">
-    <svg viewBox="0 0 24 24">
-        <path d="M4 10v4h4l5 5V5L8 10H4z" stroke-width="1.2"/>
-        <path class="wave" d="M16.5 8.5a6 6 0 0 1 0 7" stroke-width="1.2"/>
-        <path class="wave" d="M19 6a10 10 0 0 1 0 12" stroke-width="1"/>
-    </svg>
+<div id="fullscreen-toggle" title="Enter fullscreen">
+    <svg viewBox="0 0 24 24" class="icon-enter"><path d="M8 3H4v4M16 3h4v4M8 21H4v-4M16 21h4v-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    <svg viewBox="0 0 24 24" class="icon-exit"><path d="M4 8V4h4M20 8V4h-4M4 16v4h4M20 16v4h-4" stroke-linecap="round" stroke-linejoin="round"/></svg>
+</div>
+
+<div id="volume-control">
+    <div id="audio-toggle" title="Toggle the oracle's hum">
+        <svg viewBox="0 0 24 24">
+            <path d="M4 10v4h4l5 5V5L8 10H4z" stroke-width="1.2"/>
+            <path class="wave" d="M16.5 8.5a6 6 0 0 1 0 7" stroke-width="1.2"/>
+            <path class="wave" d="M19 6a10 10 0 0 1 0 12" stroke-width="1"/>
+        </svg>
+    </div>
+    <div id="volume-slider-wrap">
+        <input type="range" id="volume-slider" min="0" max="200" step="1" value="0" title="Volume">
+    </div>
 </div>
 
 <div id="grimoire">

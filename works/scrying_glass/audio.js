@@ -6,6 +6,8 @@
 let audioCtx = null;
 let audioNodes = null;
 let audioEnabled = false;
+let volumeLevel = 1.0; // 0..1, set by the hover slider; independent of mute state
+const MAX_GAIN = 0.28;
 
 // --- Dream‑pop chord library (simplified but lush) ---
 const CHORD_LIBRARY = [
@@ -390,7 +392,7 @@ function initAudio() {
     scheduleNextChord();
 
     // Long, slow fade in — nothing here should arrive suddenly
-    masterGain.gain.setTargetAtTime(0.28, audioCtx.currentTime, 3.0);
+    masterGain.gain.setTargetAtTime(MAX_GAIN * volumeLevel, audioCtx.currentTime, 3.0);
 
     // Kick off the starfield shimmer
     starfieldTimer = setTimeout(pluckStar, 4000 + Math.random() * 6000);
@@ -531,12 +533,23 @@ function updateAudioFromTarget(t, bytes) {
 
 // --- Audio toggle ---
 const audioToggleBtn = document.getElementById("audio-toggle");
+const volumeSlider = document.getElementById("volume-slider");
+
+// volumeLevel is 0..2 (100 = the original baseline volume, 200 = double it).
+// The slider always shows 0 while muted/inactive; volumeLevel itself keeps
+// the last non-zero level so unmuting restores it.
+function syncSliderDisplay() {
+    if (!volumeSlider) return;
+    volumeSlider.value = audioEnabled ? Math.round(volumeLevel * 100) : 0;
+}
+
 audioToggleBtn.addEventListener("click", () => {
     if (!audioCtx) {
         initAudio();
         audioEnabled = true;
         updateAudioFromTarget(target);
         audioToggleBtn.classList.add("on");
+        syncSliderDisplay(); // lands on the 100% midpoint the first time
         return;
     }
     if (audioEnabled) {
@@ -544,15 +557,63 @@ audioToggleBtn.addEventListener("click", () => {
         audioEnabled = false;
         audioToggleBtn.classList.remove("on");
         if (starfieldTimer) clearTimeout(starfieldTimer);
+        syncSliderDisplay(); // drops to 0
     } else {
         if (audioCtx.state === "suspended") audioCtx.resume();
-        audioNodes.master.gain.setTargetAtTime(0.28, audioCtx.currentTime, 3.0);
+        audioNodes.master.gain.setTargetAtTime(MAX_GAIN * volumeLevel, audioCtx.currentTime, 3.0);
         audioEnabled = true;
         updateAudioFromTarget(target);
         audioToggleBtn.classList.add("on");
         starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+        syncSliderDisplay(); // restores last level
     }
 });
+
+// --- Volume slider (hover popup) ---
+if (volumeSlider) {
+    volumeSlider.min = "0";
+    volumeSlider.max = "200";
+    volumeSlider.value = "0"; // muted/inactive at first
+
+    volumeSlider.addEventListener("input", () => {
+        const v = Math.min(2, Math.max(0, volumeSlider.value / 100));
+
+        if (v === 0) {
+            // Dragged down to zero: mute, but remember the level we came from.
+            if (audioCtx && audioNodes && audioEnabled) {
+                audioNodes.master.gain.setTargetAtTime(0, audioCtx.currentTime, 0.3);
+                audioEnabled = false;
+                audioToggleBtn.classList.remove("on");
+                if (starfieldTimer) clearTimeout(starfieldTimer);
+            }
+            return;
+        }
+
+        volumeLevel = v;
+
+        if (!audioCtx) {
+            // First interaction is via the slider — start the engine.
+            initAudio();
+            audioEnabled = true;
+            updateAudioFromTarget(target);
+            audioToggleBtn.classList.add("on");
+        } else if (!audioEnabled) {
+            // Was muted — dragging above zero unmutes at the dragged level.
+            if (audioCtx.state === "suspended") audioCtx.resume();
+            audioEnabled = true;
+            updateAudioFromTarget(target);
+            audioToggleBtn.classList.add("on");
+            starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+        }
+
+        audioNodes.master.gain.setTargetAtTime(MAX_GAIN * volumeLevel, audioCtx.currentTime, 0.3);
+    });
+
+    // Dragging the slider shouldn't also drag/click the mute button underneath it,
+    // and shouldn't collapse the surrounding chrome UI while adjusting.
+    volumeSlider.addEventListener("click", (e) => e.stopPropagation());
+    volumeSlider.addEventListener("pointerdown", (e) => e.stopPropagation());
+}
 
 // Expose globals (for animation.js)
 window.audioEnabled = audioEnabled;
