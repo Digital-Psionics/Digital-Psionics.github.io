@@ -5,7 +5,7 @@
 
 let audioCtx = null;
 let audioNodes = null;
-let audioEnabled = true;
+let audioEnabled = false;
 
 // --- Dream‑pop chord library (simplified but lush) ---
 const CHORD_LIBRARY = [
@@ -35,10 +35,45 @@ const CHORD_TRANSITIONS = {
 
 let chordIndex = 0;
 let lastQuantumBytes = null;
+
+// --- Tuning system ---
+// Equal temperament (12-TET) is what almost all software synths use by
+// default, but every interval except the octave is very slightly "out of
+// tune" relative to the natural harmonic series — that's what causes the
+// faint beating/roughness you hear in sustained ET chords. Just intonation
+// uses small-integer frequency ratios instead, so intervals lock together
+// with no beating at all. For a resting/meditative drone this reads as
+// noticeably calmer and more resonant, at the cost of the chord no longer
+// being transposable to an arbitrary root without re-tuning (fine here,
+// since the root is fixed anyway).
+let USE_JUST_INTONATION = true;
+const JUST_RATIOS = {
+    0: 1 / 1,   // unison
+    2: 9 / 8,   // major second   (sus2)
+    3: 6 / 5,   // minor third
+    4: 5 / 4,   // major third
+    7: 3 / 2,   // perfect fifth
+    10: 16 / 9, // minor seventh
+    11: 15 / 8, // major seventh
+};
+function offsetToRatio(offset) {
+    if (USE_JUST_INTONATION && JUST_RATIOS[offset] !== undefined) return JUST_RATIOS[offset];
+    return Math.pow(2, offset / 12); // equal-temperament fallback
+}
+
 // Slower harmonic motion — "floating at the edge of the universe" instead
 // of a lofi loop. Chord changes should feel like they arrive over a long
 // stretch of time, not on a beat.
-const CHORD_DURATION_S = 55; // seconds per chord
+const CHORD_DURATION_S = 55; // baseline seconds per chord
+const CHORD_DURATION_JITTER_S = 18; // +/- randomization so changes don't land on a metronome
+let chordTimer = null;
+let chimeEnabled = true;
+let starfieldEnabled = true;
+let organicTimingEnabled = true;
+let breathDepthNode = null; // set once initAudio runs, so we can turn the swell up/down live
+let tideDepthNode = null;
+const BREATH_DEPTH_ON = 0.035;
+const TIDE_DEPTH_ON = 0.0018;
 
 // --- Voices — added a 5th, sub-octave voice for deep-space weight ---
 const NUM_PAD_VOICES = 5;
@@ -91,12 +126,12 @@ function voiceLeadingFreqs(currentFreqs, chordOffsets, rootFreq) {
         const octaveMult = VOICE_OCTAVE_MULT[i];
         for (let j = 0; j < chordOffsets.length; j++) {
             const off = chordOffsets[j];
-            const candidate = rootFreq * Math.pow(2, off / 12) * octaveMult;
+            const candidate = rootFreq * offsetToRatio(off) * octaveMult;
             const dist = Math.abs(Math.log2(candidate / currentFreqs[i])) + (usedIndices.has(j) ? 0.5 : 0);
             if (dist < bestDist) { bestDist = dist; bestIndex = j; }
         }
         usedIndices.add(bestIndex);
-        newFreqs[i] = rootFreq * Math.pow(2, chordOffsets[bestIndex] / 12) * octaveMult;
+        newFreqs[i] = rootFreq * offsetToRatio(chordOffsets[bestIndex]) * octaveMult;
     }
     return newFreqs;
 }
@@ -109,6 +144,20 @@ function initAudio() {
     // Master gain
     masterGain = audioCtx.createGain();
     masterGain.gain.value = 0;
+
+    // Coherence-breathing swell — ~0.09Hz is ~5.5 cycles/minute, the range
+    // used in slow-breathing/HRV-coherence work. Applied as a small signal
+    // added on top of the master gain's intrinsic value, so it rides along
+    // under the fade-in/out and doesn't fight them.
+    const breathLFO = audioCtx.createOscillator();
+    breathLFO.type = "sine";
+    breathLFO.frequency.value = 0.09;
+    const breathDepth = audioCtx.createGain();
+    breathDepth.gain.value = BREATH_DEPTH_ON; // subtle — should read as "alive", not "pumping"
+    breathLFO.connect(breathDepth);
+    breathDepth.connect(masterGain.gain);
+    breathLFO.start();
+    breathDepthNode = breathDepth;
 
     // Additional low‑pass on master to darken everything — even darker,
     // for a muffled, far-away feeling.
@@ -257,12 +306,25 @@ function initAudio() {
     noiseGain.connect(delaySend);
     noise.start();
 
+    // Slow "tide" — the noise bed swells and recedes on its own unhurried
+    // cycle (~90s) instead of sitting at a constant level, so it reads as
+    // distant surf/atmosphere rather than tape hiss.
+    const tideLFO = audioCtx.createOscillator();
+    tideLFO.type = "sine";
+    tideLFO.frequency.value = 0.011;
+    const tideDepth = audioCtx.createGain();
+    tideDepth.gain.value = TIDE_DEPTH_ON; // small — layers additively on noiseGain's intrinsic value
+    tideLFO.connect(tideDepth);
+    tideDepth.connect(noiseGain.gain);
+    tideLFO.start();
+    tideDepthNode = tideDepth;
+
     // --- Starfield shimmer: sparse, quantum-timed high "twinkles" sent
     // mostly to reverb, so each one blooms and dissolves like a distant
     // star. Pitch and timing both draw on lastQuantumBytes when available,
     // falling back to Math.random(). ---
     function pluckStar() {
-        if (!audioEnabled) return;
+        if (!audioEnabled || !starfieldEnabled) return;
         const now = audioCtx.currentTime;
         const offsets = audioNodes ? audioNodes.currentChordOffsets : [0, 4, 7, 11];
 
@@ -273,7 +335,7 @@ function initAudio() {
         }
         const off = offsets[(byteA !== null ? byteA : Math.floor(Math.random() * 256)) % offsets.length];
         const octave = 3 + ((byteB !== null ? byteB : Math.floor(Math.random() * 256)) % 2);
-        const freq = currentRootFreq * Math.pow(2, off / 12) * Math.pow(2, octave);
+        const freq = currentRootFreq * offsetToRatio(off) * Math.pow(2, octave);
 
         const osc = audioCtx.createOscillator();
         osc.type = "sine";
@@ -323,17 +385,66 @@ function initAudio() {
     chordIndex = 0;
     applyChord(audioCtx.currentTime, true);
 
-    // Schedule chord changes
-    setInterval(() => {
-        if (!audioEnabled) return;
-        advanceChord();
-    }, CHORD_DURATION_S * 1000);
+    // Schedule chord changes — jittered rather than metronomic, so the
+    // piece never settles into a predictable pulse the ear can count.
+    scheduleNextChord();
 
     // Long, slow fade in — nothing here should arrive suddenly
     masterGain.gain.setTargetAtTime(0.28, audioCtx.currentTime, 3.0);
 
     // Kick off the starfield shimmer
     starfieldTimer = setTimeout(pluckStar, 4000 + Math.random() * 6000);
+}
+
+function scheduleNextChord() {
+    if (chordTimer) clearTimeout(chordTimer);
+    let durationS = CHORD_DURATION_S;
+    if (organicTimingEnabled) {
+        const jitter = lastQuantumBytes && lastQuantumBytes.length
+            ? (lastQuantumBytes[chordIndex % lastQuantumBytes.length] / 255)
+            : Math.random();
+        durationS = CHORD_DURATION_S + (jitter * 2 - 1) * CHORD_DURATION_JITTER_S;
+    }
+    chordTimer = setTimeout(() => {
+        if (!audioEnabled) { scheduleNextChord(); return; }
+        advanceChord();
+        scheduleNextChord();
+    }, durationS * 1000);
+}
+
+// --- Resonant chime — marks a chord change with a single long-decaying
+// tone, like a singing bowl struck at the moment of transition. Gives the
+// ear something to follow into the next chord instead of just noticing
+// the pads moved. ---
+function ringChime(rootOffset) {
+    if (!audioCtx || !audioNodes || !audioEnabled) return;
+    const now = audioCtx.currentTime;
+    const freq = currentRootFreq * offsetToRatio(rootOffset) * 2; // one octave up
+
+    // Two closely-tuned partials, like a bowl's fundamental + slightly
+    // sharp overtone, produce a gentle natural beating instead of a pure
+    // sine "ping".
+    [1.0, 2.005].forEach((mult, idx) => {
+        const osc = audioCtx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = freq * mult;
+
+        const g = audioCtx.createGain();
+        g.gain.value = 0;
+        const pan = audioCtx.createStereoPanner();
+        pan.pan.value = idx === 0 ? -0.15 : 0.15;
+
+        osc.connect(g);
+        g.connect(pan);
+        pan.connect(audioNodes.reverbSend);
+        pan.connect(audioNodes.dryGain);
+
+        osc.start(now);
+        const peak = idx === 0 ? 0.035 : 0.015;
+        g.gain.setTargetAtTime(peak, now, 0.8);      // slow strike, not a click
+        g.gain.setTargetAtTime(0, now + 1.0, 9.0);    // very long, bowl-like decay
+        osc.stop(now + 30);
+    });
 }
 
 // --- Chord advancement (now also updates the root only here) ---
@@ -353,6 +464,7 @@ function advanceChord() {
     currentRootFreq = BASE_ROOT_FREQ;
     audioNodes.currentRoot = currentRootFreq;
     applyChord(audioCtx.currentTime, false);
+    if (chimeEnabled) ringChime(CHORD_LIBRARY[chordIndex].offsets[0]);
 }
 
 function applyChord(now, isInit) {
@@ -445,3 +557,20 @@ audioToggleBtn.addEventListener("click", () => {
 // Expose globals (for animation.js)
 window.audioEnabled = audioEnabled;
 window.updateAudioFromTarget = updateAudioFromTarget;
+
+// --- Live feature toggles (for a settings UI / A-B listening) ---
+window.setBreathingEnabled = (on) => {
+    if (breathDepthNode && audioCtx) breathDepthNode.gain.setTargetAtTime(on ? BREATH_DEPTH_ON : 0, audioCtx.currentTime, 1.5);
+};
+window.setTideEnabled = (on) => {
+    if (tideDepthNode && audioCtx) tideDepthNode.gain.setTargetAtTime(on ? TIDE_DEPTH_ON : 0, audioCtx.currentTime, 1.5);
+};
+window.setChimeEnabled = (on) => { chimeEnabled = on; };
+window.setStarfieldEnabled = (on) => {
+    starfieldEnabled = on;
+    if (on && audioEnabled && audioNodes && !starfieldTimer) {
+        starfieldTimer = setTimeout(audioNodes.pluckStar, 1000 + Math.random() * 3000);
+    }
+};
+window.setJustIntonationEnabled = (on) => { USE_JUST_INTONATION = on; };
+window.setOrganicTimingEnabled = (on) => { organicTimingEnabled = on; };
