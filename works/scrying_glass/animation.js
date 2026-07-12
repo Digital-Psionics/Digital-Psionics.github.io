@@ -107,6 +107,34 @@ const statusText = document.getElementById('status-text');
 const tickerEl = document.getElementById('ticker');
 const sigilFlash = document.getElementById('sigil-flash');
 
+// ---------- FIRST-VISIT HINT ("hold to channel energy") ----------
+// Shown once, a beat after load so it doesn't compete with the initial
+// chrome fade-in, and dismissed for good the moment the user first
+// touches/holds the glass (or after a generous timeout, in case they never
+// interact at all).
+const hintEl = document.getElementById('hint');
+let hintDismissed = false;
+let hintShowTimer = null;
+let hintAutoHideTimer = null;
+
+function dismissHint() {
+    if (hintDismissed) return;
+    hintDismissed = true;
+    clearTimeout(hintShowTimer);
+    clearTimeout(hintAutoHideTimer);
+    hintEl.classList.remove('visible');
+}
+
+hintShowTimer = setTimeout(() => {
+    if (hintDismissed) return;
+    hintEl.classList.add('visible');
+    hintAutoHideTimer = setTimeout(dismissHint, 6000);
+}, 1400);
+
+// any charge start (pointerdown/touchstart on the glass) ends the hint
+container.addEventListener('pointerdown', dismissHint);
+container.addEventListener('touchstart', dismissHint, { passive: true });
+
 // ---------- CHARGE RING (built entirely in JS — no HTML changes needed) ----------
 // A small SVG progress ring that follows the pointer while the user holds
 // down, filling up as the charge builds toward release.

@@ -5,11 +5,11 @@
 <meta property="og:description" content="Bound to the Quantum Oracle — live quantum entropy visualized.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://Digital-Psionics.github.io/works/scrying-glass.html">
-<meta property="og:image" content="https://Digital-Psionics.github.io/works/scrying_glass/scrying-glass.png">
+<meta property="og:image" content="https://Digital-Psionics.github.io//works/scrying-glass.png">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:title" content="Digital-Psionics">
 <meta name="twitter:description" content="Bound to the Quantum Oracle — live quantum entropy visualized.">
-<meta name="twitter:image" content="https://Digital-Psionics.github.io/works/scrying_glass/scrying-glass.png">
+<meta name="twitter:image" content="https://Digital-Psionics.github.io//works/scrying-glass.png">
 <link rel="icon" type="image/png" href="/favicon.png">
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
@@ -51,6 +51,30 @@
         position:fixed;inset:0;pointer-events:none;z-index:7;
         background:radial-gradient(ellipse at center, rgba(230,200,118,0.16) 0%, rgba(230,200,118,0) 60%);
         opacity:0;transition:opacity 1.8s ease-in-out;
+    }
+
+    /* first-visit hint: "hold to channel energy" */
+    #hint{
+        position:fixed;inset:0;z-index:8;pointer-events:none;
+        display:flex;align-items:center;justify-content:center;
+        opacity:0;transition:opacity 1.6s ease;
+    }
+    #hint.visible{opacity:1;}
+    #hint span{
+    font-family:'Cinzel',serif;font-size:24px;letter-spacing:4px;
+    text-transform:uppercase;color:var(--gold-bright);opacity:0.99;
+	font-weight:700;
+    text-shadow:
+        -1px -1px 0 #000,
+         1px -1px 0 #000,
+        -1px  1px 0 #000,
+         1px  1px 0 #000,
+         0 0 24px rgba(230,200,118,0.8);
+    animation:hint-breathe 3.2s ease-in-out infinite;
+		}
+    @keyframes hint-breathe{
+        0%,100%{opacity:0.5;}
+        50%{opacity:0.99;}
     }
 
     /* mark / title */
@@ -200,6 +224,7 @@
 <div id="atmosphere"></div>
 <div id="grain"></div>
 <div id="sigil-flash"></div>
+<div id="hint"><span>Hold to channel energy</span></div>
 
 <div id="mark">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9" stroke="currentColor" fill="none" stroke-width="1"/><path d="M12 3 L12 21 M3 12 L21 12" stroke="currentColor" stroke-width="0.6"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/></svg>
