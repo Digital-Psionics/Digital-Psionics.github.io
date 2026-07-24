@@ -635,3 +635,38 @@ window.setStarfieldEnabled = (on) => {
 };
 window.setJustIntonationEnabled = (on) => { USE_JUST_INTONATION = on; };
 window.setOrganicTimingEnabled = (on) => { organicTimingEnabled = on; };
+
+// --- Start audio on the very first interaction anywhere on the page ---
+// so people don't have to find/press the volume button before anything happens.
+// The volume control itself already starts audio on its own first click/drag
+// (see audioToggleBtn / volumeSlider handlers above), so this listener steps
+// aside for interactions that land on it and lets those handlers do the work.
+let firstInteractionArmed = true;
+const FIRST_INTERACTION_EVENTS = ["pointerdown", "keydown", "touchstart"];
+
+function startAudioFromFirstInteraction() {
+    if (audioCtx) return; // already running — nothing to do
+    initAudio();
+    audioEnabled = true;
+    updateAudioFromTarget(typeof target !== "undefined" ? target : undefined);
+    audioToggleBtn.classList.add("on");
+    syncSliderDisplay();
+    starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+}
+
+function handleFirstInteraction(e) {
+    if (!firstInteractionArmed) return;
+    // Let the volume control manage its own first interaction instead of
+    // double-triggering (which would immediately re-toggle audio off).
+    if (e.target && e.target.closest && e.target.closest("#volume-control")) return;
+
+    firstInteractionArmed = false;
+    FIRST_INTERACTION_EVENTS.forEach((evt) =>
+        window.removeEventListener(evt, handleFirstInteraction, true)
+    );
+    startAudioFromFirstInteraction();
+}
+
+FIRST_INTERACTION_EVENTS.forEach((evt) =>
+    window.addEventListener(evt, handleFirstInteraction, true)
+);
