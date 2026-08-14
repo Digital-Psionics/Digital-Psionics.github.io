@@ -791,31 +791,6 @@ class SigilForge {
     return img;
   }
 
-  _mandalaLayer(){
-    const img=document.createElement('canvas');
-    img.width=this._S;img.height=this._S;
-    const ctx=img.getContext('2d');
-    ctx.fillStyle='rgb(0,0,0)';
-    ctx.fillRect(0,0,this._S,this._S);
-    const ringPal=[COL.COBALT,COL.VIOLET,COL.LAVENDER,COL.ROSE,COL.SCARLET];
-    const maxR=this._R*0.80;
-    const fragRBase=maxR*0.66;
-    const fragR=fragRBase*0.28;
-    const col=ringPal[2];
-    const nCircles=3+(this.sd[17]%6);
-
-    for(let s=0;s<this.sym;s++){
-      const angle=s*2*Math.PI/this.sym+this.rot0;
-      const ox=this._cx+fragRBase*Math.cos(angle);
-      const oy=this._cy+fragRBase*Math.sin(angle);
-      const inwardAngle=Math.atan2(this._cy-oy,this._cx-ox);
-
-      const circles=this._seedFragmentPts(ox,oy,fragR,nCircles,inwardAngle);
-      this._drawSeedFragment(img,circles,col,SSAA,this._R,0.55);
-    }
-    return img;
-  }
-
   _buildSigilWheel(cx,cy,R){
     const rawConsonants=[];
     for(const ch of this.phrase.toUpperCase()){
@@ -1025,7 +1000,10 @@ class SigilForge {
     d.fillStyle='rgb(0,0,0)';
     d.fillRect(0,0,this._S,this._S);
     const s=SSAA;
-    const cr=this._R*0.10;
+    // Outer circle radius is this._R*1.315 (see _glyphRingLayer), so its
+    // diameter is this._R*2.63. Center sigil diameter should be 25% of
+    // that, i.e. radius = this._R*2.63*0.25/2 = this._R*0.32875.
+    const cr=this._R*0.32875;
 
     for(const [col,scl] of [[COL.SCARLET,1.00],[COL.INDIGO,0.72],[COL.VIOLET,0.50]]){
       const r=cr*scl;
@@ -1048,7 +1026,7 @@ class SigilForge {
       d.stroke();
     }
 
-    const wheel=this._buildSigilWheel(this._cx,this._cy,cr*0.95);
+    const wheel=this._buildSigilWheel(this._cx,this._cy,cr*0.72);
     if(wheel){
       this._drawSigilWheel(img,wheel,[255,255,255],s*2,cr,1.0);
     }else{
@@ -1063,61 +1041,14 @@ class SigilForge {
       d.lineWidth=s;
       d.stroke();
     }
-    return img;
-  }
 
-  // ── Ring layer: thin sharp lines only, NO glow blur ──────
-  _ringLayer(){
-    const img=document.createElement('canvas');
-    img.width=this._S;img.height=this._S;
-    const s=SSAA;
-    const c1=this.ringCol1;
-    const r=this._R*1.078;
-    const col=c1;
+    // White ring surrounding the sigil
+    d.beginPath();
+    d.arc(this._cx,this._cy,cr*1.06,0,2*Math.PI);
+    d.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+    d.lineWidth=s*2;
+    d.stroke();
 
-    const ctx=img.getContext('2d');
-    ctx.fillStyle='rgb(0,0,0)';
-    ctx.fillRect(0,0,this._S,this._S);
-
-    // Single thin sharp ring line — no glow passes
-    ctx.beginPath();
-    ctx.arc(this._cx,this._cy,r,0,2*Math.PI);
-    ctx.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
-    ctx.lineWidth=s*2;
-    ctx.stroke();
-
-    // Tri-dot symbols — drawn as sharp dots, no blur
-    const nGlyphs=this.chaosGlyphs.length;
-    if(nGlyphs>0){
-      const symR=r*0.88;
-      const targetSize=Math.floor(this._S*0.035);
-
-      for(let idx=0;idx<nGlyphs;idx++){
-        const angle=idx*2*Math.PI/nGlyphs+this.rot0-Math.PI/2;
-        const gx=this._cx+symR*Math.cos(angle);
-        const gy=this._cy+symR*Math.sin(angle);
-        const inwardAngle=angle+Math.PI;
-
-        const t=idx/Math.max(nGlyphs,1);
-        const cycle=0.5+0.5*Math.sin(2*Math.PI*t+this.rot0);
-        const symCol=lerp(COL.LAVENDER,COL.SCARLET,cycle);
-
-        const triR=targetSize*0.38;
-        const dotR=Math.max(2,Math.floor(targetSize*0.05));
-
-        for(let k=0;k<3;k++){
-          const a=inwardAngle+k*2*Math.PI/3;
-          const dx=gx+triR*Math.cos(a);
-          const dy=gy+triR*Math.sin(a);
-
-          // Sharp dot only — no glow
-          ctx.beginPath();
-          ctx.arc(dx,dy,dotR,0,2*Math.PI);
-          ctx.fillStyle=`rgb(${symCol[0]},${symCol[1]},${symCol[2]})`;
-          ctx.fill();
-        }
-      }
-    }
     return img;
   }
 
@@ -1230,6 +1161,13 @@ class SigilForge {
     d.globalCompositeOperation='source-over';
     d.drawImage(mainOverlay,0,0);
 
+    // Inner ring — thin sharp line, NO glow blur
+    d.beginPath();
+    d.arc(this._cx,this._cy,innerRingR,0,2*Math.PI);
+    d.strokeStyle=`rgb(${COL.PALE[0]},${COL.PALE[1]},${COL.PALE[2]})`;
+    d.lineWidth=SSAA*2;
+    d.stroke();
+
     // Outermost ring — thin sharp line only, NO glow blur
     const r=outerRingR;
     d.beginPath();
@@ -1271,8 +1209,6 @@ class SigilForge {
         let raw=this._chordLayer(m,this._R*rs,ca,cb,W);
         canvas=screenBlend(canvas,raw);
       }})),
-      {weight:2,label:'Tracing the mandala\u2026',fn:()=>{ canvas=screenBlend(canvas,this._mandalaLayer()); }},
-      {weight:1,label:'Drawing the rings\u2026',fn:()=>{ canvas=screenBlend(canvas,this._ringLayer()); }},
       {weight:4,label:'Inscribing the outer runes\u2026',fn:()=>{ canvas=screenBlend(canvas,this._glyphRingLayer()); }},
       {weight:1,label:'Setting the centre mark\u2026',fn:()=>{ canvas=screenBlend(canvas,this._centreLayer()); }},
       {weight:2,label:'Casting the final bloom\u2026',fn:()=>{
