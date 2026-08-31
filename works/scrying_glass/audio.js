@@ -94,7 +94,77 @@ let masterGain, compressor, saturator;
 let starfieldTimer = null;
 
 // --- Utility ---
+// Reverb impulse-response data is heavy to generate (seconds of stereo
+// noise with a per-sample decay envelope) so we precompute the raw
+// Float32Arrays eagerly at script load — well before the user's first
+// interaction — instead of doing it synchronously inside initAudio().
+// That first interaction is also when the WebGL loop and UI are getting
+// set up, so doing ~1M+ Math.pow calls at that exact moment was the
+// source of the audio-start stutter. Building the arrays doesn't need
+// an AudioContext, only sampleRate, so we can do it immediately; we just
+// wrap the finished arrays in a real AudioBuffer once the context exists.
+const IMPULSE_DURATION_S = 6.0; // was 16s — the tail is already near-silent
+                                  // well before that, so this sounds the same
+                                  // while cutting the precompute ~3x
+const IMPULSE_DECAY = 4.0;
+const IMPULSE_SAMPLE_RATE = 44100; // generated ahead of time at a fixed rate;
+                                     // AudioContext sample rate is almost
+                                     // always 44100/48000 and a slight
+                                     // mismatch here is inaudible for noise
+
+const NOISE_DURATION_S = 4.0;
+
+// Build the raw sample data synchronously, but eagerly at script-load time —
+// before the user's first interaction — rather than inside initAudio(). The
+// animation loop's continuous requestAnimationFrame calls (started at the
+// bottom of animation.js on page load) leave the browser very little true
+// "idle" time, so an earlier requestIdleCallback-based version of this could
+// stall for a long time and leave the fast path unready — worth avoiding
+// that whole class of timing bug. Running it once, synchronously, right as
+// the script parses (before Three.js/animation.js even run, since audio.js
+// loads first) still gets this off the moment sound actually starts.
+function buildImpulseData(duration, decay, rate) {
+    const length = Math.floor(rate * duration);
+    const channels = [new Float32Array(length), new Float32Array(length)];
+    for (let ch = 0; ch < 2; ch++) {
+        const data = channels[ch];
+        for (let i = 0; i < length; i++) {
+            data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, decay);
+        }
+    }
+    return { rate, channels };
+}
+
+function buildNoiseData(duration, rate) {
+    const data = new Float32Array(Math.floor(rate * duration));
+    for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.15;
+    return data;
+}
+
+let precomputedImpulseData = buildImpulseData(IMPULSE_DURATION_S, IMPULSE_DECAY, IMPULSE_SAMPLE_RATE);
+let precomputedNoiseData = buildNoiseData(NOISE_DURATION_S, IMPULSE_SAMPLE_RATE);
+
 function buildImpulse(duration, decay) {
+    // Fast path: reuse the eagerly-computed sample data, but wrap it in an
+    // AudioBuffer at the *real* context sample rate. ConvolverNode.buffer
+    // requires an exact sample-rate match with the AudioContext (unlike
+    // AudioBufferSourceNode, which resamples automatically) — using the
+    // assumed 44.1kHz generation rate here throws on any 48kHz system,
+    // which is most of them, and aborts initAudio() partway through with
+    // no audible symptom besides "no sound." The sample data itself is
+    // shaped noise, so playing it back at a slightly different rate than
+    // it was generated for just changes the reverb tail length by a few
+    // hundred ms — inaudible for this use.
+    if (precomputedImpulseData) {
+        const { channels } = precomputedImpulseData;
+        const impulse = audioCtx.createBuffer(2, channels[0].length, audioCtx.sampleRate);
+        impulse.getChannelData(0).set(channels[0]);
+        impulse.getChannelData(1).set(channels[1]);
+        precomputedImpulseData = null; // one-shot; free the reference
+        return impulse;
+    }
+    // Fallback: build synchronously (e.g. initAudio somehow ran before
+    // the module finished evaluating, or buildImpulse is called again).
     const rate = audioCtx.sampleRate;
     const length = Math.floor(rate * duration);
     const impulse = audioCtx.createBuffer(2, length, rate);
@@ -187,7 +257,7 @@ function initAudio() {
 
     // Reverb — much longer & darker: a cathedral the size of a galaxy
     reverbNode = audioCtx.createConvolver();
-    reverbNode.buffer = buildImpulse(16.0, 4.0); // longer decay
+    reverbNode.buffer = buildImpulse(IMPULSE_DURATION_S, IMPULSE_DECAY); // longer decay
     const reverbSend = audioCtx.createGain();
     reverbSend.gain.value = 0.85; // more wet
     reverbSend.connect(reverbNode);
@@ -290,9 +360,16 @@ function initAudio() {
     }
 
     // --- Soft noise bed — quieter, darker: cosmic background hiss ---
-    const noiseBuffer = audioCtx.createBuffer(1, audioCtx.sampleRate * 4, audioCtx.sampleRate);
-    const nd = noiseBuffer.getChannelData(0);
-    for (let i = 0; i < nd.length; i++) nd[i] = (Math.random() * 2 - 1) * 0.15;
+    // Same chunked-precompute trick as the reverb impulse. Fall back to a
+    // synchronous build only in the unlikely case the user interacts before
+    // the idle-time precompute has finished.
+    let noiseData = precomputedNoiseData;
+    if (!noiseData) {
+        noiseData = new Float32Array(Math.floor(audioCtx.sampleRate * NOISE_DURATION_S));
+        for (let i = 0; i < noiseData.length; i++) noiseData[i] = (Math.random() * 2 - 1) * 0.15;
+    }
+    const noiseBuffer = audioCtx.createBuffer(1, noiseData.length, audioCtx.sampleRate);
+    noiseBuffer.getChannelData(0).set(noiseData);
     const noise = audioCtx.createBufferSource();
     noise.buffer = noiseBuffer;
     noise.loop = true;

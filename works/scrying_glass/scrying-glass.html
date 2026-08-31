@@ -512,5 +512,31 @@
 
 <script src="audio.js"></script>
 <script src="animation.js"></script>
+<script>
+    // --- Keep screen awake while this page is open/visible ---
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+        if (!('wakeLock' in navigator)) return; // unsupported browser, silently skip
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            wakeLock.addEventListener('release', () => {
+                // released by the browser (e.g. tab hidden) — will re-request on visibilitychange below
+            });
+        } catch (err) {
+            // request can fail (e.g. low battery, not visible) — that's fine, it'll retry
+            console.warn('Wake Lock request failed:', err);
+        }
+    }
+
+    requestWakeLock();
+
+    // Wake locks are auto-released when the tab is backgrounded; re-acquire when it's visible again
+    document.addEventListener('visibilitychange', async () => {
+        if (document.visibilityState === 'visible') {
+            await requestWakeLock();
+        }
+    });
+</script>
 </body>
 </html>

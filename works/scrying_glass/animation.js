@@ -371,9 +371,15 @@ function byteAt(bytes, i) { return bytes[i % bytes.length]; }
 const visual = { level: 3.0, symmetry: 6, speed: 0.12, intensity: 1.0, iterations: 1, hueShift: 0 };
 let tween = null; // { from, to, hueDelta, startClockTime, duration }
 
-const BASE_TWEEN_S = 3.5;  // how long an ease takes at 1.0x speed
+const BASE_TWEEN_S = 12.0; // how long the SHAPE (level/symmetry/iterations/hue) takes to ease into a new reading
 const MIN_TWEEN_S = 1.2;
 const MAX_TWEEN_S = 8.0;
+
+// Animation SPEED is intentionally NOT part of the shape tween above — it's
+// smoothed separately and continuously (see SPEED_SMOOTH_TIME_S in the
+// animation loop) so the rate the pattern moves at never jumps when a new
+// reading lands, and stays consistent between readings too.
+const SPEED_SMOOTH_TIME_S = 10.0; // ~time to close most of the gap to a new speed target
 
 function tweenDuration() {
     // Fixed — no longer tied to the "Speed of Change" slider, which now only
@@ -441,7 +447,7 @@ function updateReadingsUI() {
 // ---------- POLLING LOOP ----------
 let holding = false;
 let pollTimer = null;
-const POLL_INTERVAL_MS = 30000;
+const POLL_INTERVAL_MS = 60000;
 
 async function refreshEntropy() {
     if (holding) return;
@@ -574,21 +580,27 @@ function animate() {
         // Linear throughout — smoothstep's eased curve barely moves near t=0/1 and
         // rushes through most of the change in a short middle window, which reads
         // as the pattern "snapping" fast mid-transition instead of moving at a
-        // steady pace. A constant rate of change keeps the transition feeling the
-        // same speed as the idle animation, the same reasoning already applied to
-        // `speed` below.
+        // steady pace. A constant rate of change keeps the transition feeling
+        // like a steady drift rather than a lurch.
         const e = t;
 
         visual.level      = tween.from.level      + (tween.to.level      - tween.from.level) * e;
         visual.symmetry   = tween.from.symmetry   + (tween.to.symmetry   - tween.from.symmetry) * e;
-        // `speed` isn't a static display value — it's fed straight into shaderClock
-        // accumulation below (dt * currentSpeed), so it's a *rate*, not a position.
-        visual.speed       = tween.from.speed       + (tween.to.speed       - tween.from.speed) * t;
         visual.intensity  = tween.from.intensity  + (tween.to.intensity  - tween.from.intensity) * e;
         visual.iterations = tween.from.iterations + (tween.to.iterations - tween.from.iterations) * e;
         visual.hueShift   = tween.from.hueShift   + tween.hueDelta * e;
 
         if (t >= 1) tween = null;
+    }
+
+    // Animation speed eases toward the latest target continuously, on its own
+    // slow clock — NOT tied to the shape tween's start/end. This is what keeps
+    // the motion rate steady during a normal reading and prevents a sudden
+    // speed-up/slow-down the moment a new quantum draw comes in. Runs every
+    // frame regardless of whether a shape tween is in progress.
+    {
+        const speedLerpRate = 1 / SPEED_SMOOTH_TIME_S;
+        visual.speed += (target.speed - visual.speed) * Math.min(1, dt * speedLerpRate);
     }
 
     // Charge boost: rises toward the live charge progress while holding,
