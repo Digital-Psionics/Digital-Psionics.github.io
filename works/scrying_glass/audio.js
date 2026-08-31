@@ -8,6 +8,9 @@ let audioNodes = null;
 let audioEnabled = false;
 let volumeLevel = 1.0; // 0..1, set by the hover slider; independent of mute state
 const MAX_GAIN = 0.28;
+// Background pad "hum" turned down to 75% of its original level so the
+// bowl dings/rim-runs read more clearly above it.
+const PAD_HUM_SCALE = 0.5;
 
 // --- Dream‑pop chord library (simplified but lush) ---
 const CHORD_LIBRARY = [
@@ -70,6 +73,7 @@ const CHORD_DURATION_S = 55; // baseline seconds per chord
 const CHORD_DURATION_JITTER_S = 18; // +/- randomization so changes don't land on a metronome
 let chordTimer = null;
 let chimeEnabled = true;
+let bowlDingEnabled = true;
 let starfieldEnabled = true;
 let organicTimingEnabled = true;
 let breathDepthNode = null; // set once initAudio runs, so we can turn the swell up/down live
@@ -92,6 +96,13 @@ let masterGain, compressor, saturator;
 
 // --- Starfield shimmer (quantum-driven) ---
 let starfieldTimer = null;
+// --- Bowl dings (quantum-driven, independent of chord changes) ---
+let bowlDingTimer = null;
+// --- Bowl rim-runs (mallet circling the rim — a distinct technique from a
+// struck ding: friction-driven, builds gradually, sustains with a wavering
+// "singing" tone, then fades as contact eases off) ---
+let bowlRimRunTimer = null;
+let bowlRimRunEnabled = true;
 
 // --- Utility ---
 // Reverb impulse-response data is heavy to generate (seconds of stereo
@@ -143,6 +154,21 @@ function buildNoiseData(duration, rate) {
 
 let precomputedImpulseData = buildImpulseData(IMPULSE_DURATION_S, IMPULSE_DECAY, IMPULSE_SAMPLE_RATE);
 let precomputedNoiseData = buildNoiseData(NOISE_DURATION_S, IMPULSE_SAMPLE_RATE);
+
+// Short burst of noise for the mallet "strike" transient at the start of
+// each bowl ding — real singing bowls have a soft thonk of the mallet
+// hitting the rim before the metal rings out. Shaped with its own fast
+// decay so it reads as a strike, not a click.
+const STRIKE_NOISE_DURATION_S = 0.4;
+function buildStrikeNoiseData(duration, rate) {
+    const length = Math.floor(rate * duration);
+    const data = new Float32Array(length);
+    for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / length, 3.0);
+    }
+    return data;
+}
+let precomputedStrikeNoiseData = buildStrikeNoiseData(STRIKE_NOISE_DURATION_S, IMPULSE_SAMPLE_RATE);
 
 function buildImpulse(duration, decay) {
     // Fast path: reuse the eagerly-computed sample data, but wrap it in an
@@ -310,7 +336,7 @@ function initAudio() {
 
         const gainNode = audioCtx.createGain();
         // sub voice (i===0) carries more energy but sits low in the spectrum
-        gainNode.gain.value = i === 0 ? 0.05 : 0.013;
+        gainNode.gain.value = (i === 0 ? 0.05 : 0.013) * PAD_HUM_SCALE;
 
         const filter = audioCtx.createBiquadFilter();
         filter.type = "lowpass";
@@ -398,6 +424,87 @@ function initAudio() {
     tideLFO.start();
     tideDepthNode = tideDepth;
 
+    // --- Bowl-strike synthesis --------------------------------------------
+    // Shared by the chord-change chime and the periodic bowl dings below.
+    // A real struck singing bowl has two ingredients this was missing
+    // before: (1) a soft "thonk" of the mallet hitting the rim — modeled
+    // here as a short bandpassed noise burst — and (2) several *inharmonic*
+    // ringing partials (not clean octaves) that beat slowly against each
+    // other, which is what gives a struck bowl its shimmering, "alive"
+    // quality instead of a plain sine ping.
+    const strikeNoiseBuffer = audioCtx.createBuffer(
+        1, precomputedStrikeNoiseData.length, audioCtx.sampleRate
+    );
+    strikeNoiseBuffer.getChannelData(0).set(precomputedStrikeNoiseData);
+
+    const BOWL_PARTIALS = [
+        { mult: 1.000, detune: 0, gain: 1.00 },
+        { mult: 1.003, detune: 0, gain: 0.55 }, // near-unison pair -> slow natural beating
+        { mult: 2.76,  detune: 0, gain: 0.34 }, // inharmonic overtone (typical of bowls)
+        { mult: 2.79,  detune: 0, gain: 0.20 },
+        { mult: 4.12,  detune: 0, gain: 0.14 },
+        { mult: 5.40,  detune: 0, gain: 0.08 },
+    ];
+
+    function playBowlStrike(freq, opts = {}) {
+        if (!audioCtx || !audioNodes) return;
+        const now = audioCtx.currentTime;
+        const {
+            peak = 0.03,      // overall loudness of the ring
+            attack = 0.045,   // fast — this is a strike, not a swell
+            decay = 5.0,      // ring-out time constant
+            pan = 0,
+            strikeLevel = 0.16, // loudness of the mallet-hit transient
+        } = opts;
+
+        // Mallet strike transient
+        const strikeSrc = audioCtx.createBufferSource();
+        strikeSrc.buffer = strikeNoiseBuffer;
+        const strikeFilter = audioCtx.createBiquadFilter();
+        strikeFilter.type = "bandpass";
+        strikeFilter.frequency.value = freq * 1.5;
+        strikeFilter.Q.value = 0.8;
+        const strikeGain = audioCtx.createGain();
+        strikeGain.gain.value = 0;
+        const strikePan = audioCtx.createStereoPanner();
+        strikePan.pan.value = pan;
+
+        strikeSrc.connect(strikeFilter);
+        strikeFilter.connect(strikeGain);
+        strikeGain.connect(strikePan);
+        strikePan.connect(audioNodes.dryGain);
+        strikePan.connect(audioNodes.reverbSend);
+
+        strikeSrc.start(now);
+        strikeGain.gain.setTargetAtTime(strikeLevel, now, 0.006);
+        strikeGain.gain.setTargetAtTime(0, now + 0.02, 0.09);
+        strikeSrc.stop(now + STRIKE_NOISE_DURATION_S);
+
+        // Ringing partials
+        BOWL_PARTIALS.forEach((p) => {
+            const osc = audioCtx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = freq * p.mult;
+            if (p.detune) osc.detune.value = p.detune;
+
+            const g = audioCtx.createGain();
+            g.gain.value = 0;
+            const pn = audioCtx.createStereoPanner();
+            pn.pan.value = Math.max(-1, Math.min(1, pan + (Math.random() * 2 - 1) * 0.08));
+
+            osc.connect(g);
+            g.connect(pn);
+            pn.connect(audioNodes.reverbSend);
+            pn.connect(audioNodes.dryGain);
+            pn.connect(audioNodes.delaySend);
+
+            osc.start(now);
+            g.gain.setTargetAtTime(peak * p.gain, now, attack);
+            g.gain.setTargetAtTime(0, now + attack + 0.15, decay);
+            osc.stop(now + attack + decay * 6 + 1);
+        });
+    }
+
     // --- Starfield shimmer: sparse, quantum-timed high "twinkles" sent
     // mostly to reverb, so each one blooms and dissolves like a distant
     // star. Pitch and timing both draw on lastQuantumBytes when available,
@@ -442,9 +549,173 @@ function initAudio() {
         starfieldTimer = setTimeout(pluckStar, 6000 + jitter * 14000);
     }
 
+    // --- Periodic bowl dings: short, percussive singing-bowl strikes that
+    // recur on their own unhurried schedule, independent of the much-slower
+    // chord changes — this is the "ding" texture from the reference track,
+    // layered on top of the pad instead of only marking harmony shifts. ---
+    function bowlDing() {
+        if (!audioEnabled || !bowlDingEnabled) return;
+        const offsets = audioNodes ? audioNodes.currentChordOffsets : [0, 4, 7, 11];
+
+        let byteA = null, byteB = null, byteC = null;
+        if (lastQuantumBytes && lastQuantumBytes.length) {
+            byteA = lastQuantumBytes[Math.floor(Math.random() * lastQuantumBytes.length)];
+            byteB = lastQuantumBytes[Math.floor(Math.random() * lastQuantumBytes.length)];
+            byteC = lastQuantumBytes[Math.floor(Math.random() * lastQuantumBytes.length)];
+        }
+        const off = offsets[(byteA !== null ? byteA : Math.floor(Math.random() * 256)) % offsets.length];
+        const octave = 2 + ((byteB !== null ? byteB : Math.floor(Math.random() * 256)) % 3); // spread across 3 octaves
+        const freq = currentRootFreq * offsetToRatio(off) * Math.pow(2, octave);
+        const pan = ((byteC !== null ? byteC : Math.floor(Math.random() * 256)) / 255) * 1.4 - 0.7;
+
+        playBowlStrike(freq, {
+            peak: 0.026,
+            attack: 0.04,
+            decay: 3.2,
+            pan,
+            strikeLevel: 0.14,
+        });
+
+        // "More singing bowls": roughly a third of the time, layer a second
+        // bowl a few hundred ms later at a different chord tone/octave/pan
+        // so strikes occasionally overlap into a small cluster instead of
+        // always being single isolated dings.
+        const wantsLayer = (byteC !== null ? byteC : Math.floor(Math.random() * 256)) < 85; // ~1/3
+        if (wantsLayer) {
+            const off2 = offsets[(byteB !== null ? byteB : Math.floor(Math.random() * 256)) % offsets.length];
+            const octave2 = 2 + (((byteA !== null ? byteA : Math.floor(Math.random() * 256)) + 1) % 3);
+            const freq2 = currentRootFreq * offsetToRatio(off2) * Math.pow(2, octave2);
+            const pan2 = -pan; // opposite side of the stereo field
+            const layerDelayMs = 220 + Math.random() * 380;
+            setTimeout(() => {
+                if (!audioEnabled || !bowlDingEnabled) return;
+                playBowlStrike(freq2, {
+                    peak: 0.02,
+                    attack: 0.04,
+                    decay: 2.8,
+                    pan: pan2,
+                    strikeLevel: 0.11,
+                });
+            }, layerDelayMs);
+        }
+
+        // Next ding at a random interval, 5-10s — quantum-influenced
+        // when bytes are available
+        const jitter = byteA !== null ? (byteA / 255) : Math.random();
+        bowlDingTimer = setTimeout(bowlDing, 1000 + jitter * 9000);
+    }
+
+    // --- Periodic bowl rim-runs: a mallet circled around the rim, not
+    // struck against it. Real rim-running is friction-driven, so unlike a
+    // ding it can't just snap on — the tone has to build as the mallet
+    // finds speed, hold with a slight wavering "singing" quality while
+    // contact is sustained, then fade as the player eases off. This picks
+    // one of the sustained bowl voices (built below) and drives its own
+    // gain through that build → sustain(waver) → release arc, then goes
+    // silent again until the next run — it is an occasional event, not a
+    // drone that's always on. ---
+    function bowlRimRun() {
+        if (!audioEnabled || !bowlRimRunEnabled || !audioNodes || !audioNodes.bowlDroneVoices) return;
+        const now = audioCtx.currentTime;
+        const voices = audioNodes.bowlDroneVoices;
+
+        let byteA = null;
+        if (lastQuantumBytes && lastQuantumBytes.length) {
+            byteA = lastQuantumBytes[Math.floor(Math.random() * lastQuantumBytes.length)];
+        }
+        const idx = (byteA !== null ? byteA : Math.floor(Math.random() * 256)) % voices.length;
+        const v = voices[idx];
+
+        // Build: the mallet is finding friction against the rim, tone
+        // gradually catches and rises — slower than any struck attack.
+        const buildTime = 2.5 + Math.random() * 1.8;
+        // Sustain: contact is steady, the shimmer LFO already wired to
+        // this voice's gain gives the natural waver of a running rim.
+        const sustainTime = 4.5 + Math.random() * 5.0;
+        // Release: contact eases off, the ring dies away.
+        const releaseTime = 3.0 + Math.random() * 2.5;
+
+        v.voiceGain.gain.cancelScheduledValues(now);
+        v.voiceGain.gain.setTargetAtTime(v.targetGain, now, buildTime * 0.4);
+        v.voiceGain.gain.setTargetAtTime(0, now + buildTime + sustainTime, releaseTime * 0.4);
+
+        // Next rim-run after this one has fully died away, plus a long,
+        // unhurried gap — this is a rarer event than a ding.
+        const totalRunTime = buildTime + sustainTime + releaseTime;
+        const jitter = byteA !== null ? (byteA / 255) : Math.random();
+        bowlRimRunTimer = setTimeout(bowlRimRun, (totalRunTime + 14 + jitter * 26) * 1000);
+    }
+
+    // --- Sustained singing-bowl voices --------------------------------------
+    // The bowlDing() strikes above are periodic and percussive. This is
+    // different: a few bowl voices, built from the same near-unison beating
+    // pair + inharmonic overtones as playBowlStrike, that stay silent by
+    // default and are driven by bowlRimRun() above into an occasional
+    // friction-run swell — so it reads as the same instrument played a
+    // different way, not a second continuous layer.
+    const NUM_BOWL_DRONE_VOICES = 3;
+    const bowlDroneVoices = [];
+    for (let i = 0; i < NUM_BOWL_DRONE_VOICES; i++) {
+        const voiceGain = audioCtx.createGain();
+        voiceGain.gain.value = 0; // faded up below, after everything is wired
+
+        const panner = audioCtx.createStereoPanner();
+        panner.pan.value = [-0.4, 0.45, -0.1][i % 3];
+
+        // Slow amplitude shimmer so the sustained bowl still feels alive
+        // rather than a static drone — mimics the way a real bowl's ring
+        // slowly swells and thins.
+        const shimmerLFO = audioCtx.createOscillator();
+        shimmerLFO.type = "sine";
+        shimmerLFO.frequency.value = 0.035 + i * 0.014;
+        const shimmerDepth = audioCtx.createGain();
+        shimmerDepth.gain.value = 0; // scaled to target gain once known
+        shimmerLFO.connect(shimmerDepth);
+        shimmerDepth.connect(voiceGain.gain);
+        shimmerLFO.start();
+
+        // Slow stereo drift, same idea as the pad voices
+        const panLFO = audioCtx.createOscillator();
+        panLFO.type = "sine";
+        panLFO.frequency.value = 0.007 + i * 0.004;
+        const panLFOGain = audioCtx.createGain();
+        panLFOGain.gain.value = 0.2;
+        panLFO.connect(panLFOGain);
+        panLFOGain.connect(panner.pan);
+        panLFO.start();
+
+        // Reuse the same inharmonic partial ratios as the struck bowl
+        // (near-unison pair for slow beating, plus two higher overtones)
+        const oscs = BOWL_PARTIALS.slice(0, 4).map((p) => {
+            const osc = audioCtx.createOscillator();
+            osc.type = "sine";
+            osc.frequency.value = 440 * p.mult; // real pitch set by applyChord
+            const g = audioCtx.createGain();
+            g.gain.value = p.gain;
+            osc.connect(g);
+            g.connect(voiceGain);
+            osc.start();
+            return { osc, mult: p.mult };
+        });
+
+        voiceGain.connect(panner);
+        panner.connect(dryGain);
+        panner.connect(reverbSend); // bowls should bloom into the reverb
+
+        const targetGain = i === 0 ? 0.018 : 0.012;
+        bowlDroneVoices.push({
+            oscs, voiceGain, panner, shimmerDepth,
+            currentFreq: 440,
+            targetGain,
+        });
+        // Shimmer swings the gain by roughly +/-35% around its target
+        shimmerDepth.gain.value = targetGain * 0.35;
+    }
+
     audioNodes = {
         master: masterGain,
         padVoices,
+        bowlDroneVoices,
         noiseFilter,
         noiseGain,
         reverbSend,
@@ -458,6 +729,9 @@ function initAudio() {
         currentRoot: BASE_ROOT_FREQ,
         currentChordOffsets: CHORD_LIBRARY[0].offsets,
         pluckStar,
+        bowlDing,
+        bowlRimRun,
+        playBowlStrike,
     };
 
     // Start first chord
@@ -473,6 +747,12 @@ function initAudio() {
 
     // Kick off the starfield shimmer
     starfieldTimer = setTimeout(pluckStar, 4000 + Math.random() * 6000);
+
+    // Kick off the periodic bowl dings
+    bowlDingTimer = setTimeout(bowlDing, 3000 + Math.random() * 5000);
+
+    // Kick off the periodic bowl rim-runs (rarer, slower arc than a ding)
+    bowlRimRunTimer = setTimeout(bowlRimRun, 8000 + Math.random() * 12000);
 }
 
 function scheduleNextChord() {
@@ -497,32 +777,16 @@ function scheduleNextChord() {
 // the pads moved. ---
 function ringChime(rootOffset) {
     if (!audioCtx || !audioNodes || !audioEnabled) return;
-    const now = audioCtx.currentTime;
     const freq = currentRootFreq * offsetToRatio(rootOffset) * 2; // one octave up
-
-    // Two closely-tuned partials, like a bowl's fundamental + slightly
-    // sharp overtone, produce a gentle natural beating instead of a pure
-    // sine "ping".
-    [1.0, 2.005].forEach((mult, idx) => {
-        const osc = audioCtx.createOscillator();
-        osc.type = "sine";
-        osc.frequency.value = freq * mult;
-
-        const g = audioCtx.createGain();
-        g.gain.value = 0;
-        const pan = audioCtx.createStereoPanner();
-        pan.pan.value = idx === 0 ? -0.15 : 0.15;
-
-        osc.connect(g);
-        g.connect(pan);
-        pan.connect(audioNodes.reverbSend);
-        pan.connect(audioNodes.dryGain);
-
-        osc.start(now);
-        const peak = idx === 0 ? 0.035 : 0.015;
-        g.gain.setTargetAtTime(peak, now, 0.8);      // slow strike, not a click
-        g.gain.setTargetAtTime(0, now + 1.0, 9.0);    // very long, bowl-like decay
-        osc.stop(now + 30);
+    // Full bowl-strike synthesis (mallet transient + inharmonic ringing
+    // partials), shared with the periodic bowl dings below — this one's
+    // louder and longer-ringing since it's marking a chord change.
+    audioNodes.playBowlStrike(freq, {
+        peak: 0.038,
+        attack: 0.05,
+        decay: 8.0,
+        pan: 0,
+        strikeLevel: 0.2,
     });
 }
 
@@ -574,6 +838,25 @@ function applyChord(now, isInit) {
             v.gainNode.gain.setTargetAtTime(v.targetGain, now + 2.0, 4.0);
         }
     }
+
+    // Keep the continuous bowl-drone voices on chord tones too, up in the
+    // bowl's own register (a couple octaves above the pad), gliding right
+    // along with the chord change.
+    const droneVoices = audioNodes.bowlDroneVoices;
+    if (droneVoices) {
+        const droneOctaveMult = [4, 8, 6]; // spread across ~2-2.5 octaves above root
+        for (let i = 0; i < droneVoices.length; i++) {
+            const off = offsets[i % offsets.length];
+            const freq = root * offsetToRatio(off) * droneOctaveMult[i % droneOctaveMult.length];
+            droneVoices[i].currentFreq = freq;
+            const glideTime = isInit ? 0.1 : 6.0;
+            droneVoices[i].oscs.forEach((o) => {
+                o.osc.frequency.setTargetAtTime(freq * o.mult, now, glideTime);
+            });
+            // No fade-in here — these voices stay silent until bowlRimRun()
+            // drives one through its build/sustain/release arc.
+        }
+    }
 }
 
 // --- Update audio parameters from quantum (no more root changes) ---
@@ -592,8 +875,8 @@ function updateAudioFromTarget(t, bytes) {
             const v = audioNodes.padVoices[i];
             v.filter.frequency.setTargetAtTime(cutoffBase + i * 50, now, glide * 1.5);
             // Target gain based on intensity, respecting each voice's own baseline
-            const base = i === 0 ? 0.05 : 0.013;
-            const gainVal = base + intensity * 0.02;
+            const base = (i === 0 ? 0.05 : 0.013) * PAD_HUM_SCALE;
+            const gainVal = base + intensity * 0.02 * PAD_HUM_SCALE;
             v.targetGain = gainVal;
             v.gainNode.gain.setTargetAtTime(gainVal, now, glide * 0.8);
         }
@@ -634,6 +917,8 @@ audioToggleBtn.addEventListener("click", () => {
         audioEnabled = false;
         audioToggleBtn.classList.remove("on");
         if (starfieldTimer) clearTimeout(starfieldTimer);
+        if (bowlDingTimer) clearTimeout(bowlDingTimer);
+        if (bowlRimRunTimer) clearTimeout(bowlRimRunTimer);
         syncSliderDisplay(); // drops to 0
     } else {
         if (audioCtx.state === "suspended") audioCtx.resume();
@@ -642,6 +927,8 @@ audioToggleBtn.addEventListener("click", () => {
         updateAudioFromTarget(target);
         audioToggleBtn.classList.add("on");
         starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+        bowlDingTimer = setTimeout(audioNodes.bowlDing, 3000 + Math.random() * 5000);
+        bowlRimRunTimer = setTimeout(audioNodes.bowlRimRun, 8000 + Math.random() * 12000);
         syncSliderDisplay(); // restores last level
     }
 });
@@ -662,6 +949,8 @@ if (volumeSlider) {
                 audioEnabled = false;
                 audioToggleBtn.classList.remove("on");
                 if (starfieldTimer) clearTimeout(starfieldTimer);
+                if (bowlDingTimer) clearTimeout(bowlDingTimer);
+                if (bowlRimRunTimer) clearTimeout(bowlRimRunTimer);
             }
             return;
         }
@@ -681,6 +970,8 @@ if (volumeSlider) {
             updateAudioFromTarget(target);
             audioToggleBtn.classList.add("on");
             starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+            bowlDingTimer = setTimeout(audioNodes.bowlDing, 3000 + Math.random() * 5000);
+            bowlRimRunTimer = setTimeout(audioNodes.bowlRimRun, 8000 + Math.random() * 12000);
         }
 
         audioNodes.master.gain.setTargetAtTime(MAX_GAIN * volumeLevel, audioCtx.currentTime, 0.3);
@@ -704,6 +995,26 @@ window.setTideEnabled = (on) => {
     if (tideDepthNode && audioCtx) tideDepthNode.gain.setTargetAtTime(on ? TIDE_DEPTH_ON : 0, audioCtx.currentTime, 1.5);
 };
 window.setChimeEnabled = (on) => { chimeEnabled = on; };
+window.setBowlDingEnabled = (on) => {
+    bowlDingEnabled = on;
+    if (on && audioEnabled && audioNodes && !bowlDingTimer) {
+        bowlDingTimer = setTimeout(audioNodes.bowlDing, 1000 + Math.random() * 3000);
+    }
+};
+window.setBowlRimRunEnabled = (on) => {
+    bowlRimRunEnabled = on;
+    if (on && audioEnabled && audioNodes && !bowlRimRunTimer) {
+        bowlRimRunTimer = setTimeout(audioNodes.bowlRimRun, 3000 + Math.random() * 6000);
+    }
+    if (!on && audioNodes && audioNodes.bowlDroneVoices && audioCtx) {
+        // Fade any currently-running rim-run down cleanly rather than
+        // cutting it off mid-swell.
+        audioNodes.bowlDroneVoices.forEach((v) => {
+            v.voiceGain.gain.cancelScheduledValues(audioCtx.currentTime);
+            v.voiceGain.gain.setTargetAtTime(0, audioCtx.currentTime, 1.2);
+        });
+    }
+};
 window.setStarfieldEnabled = (on) => {
     starfieldEnabled = on;
     if (on && audioEnabled && audioNodes && !starfieldTimer) {
@@ -729,6 +1040,8 @@ function startAudioFromFirstInteraction() {
     audioToggleBtn.classList.add("on");
     syncSliderDisplay();
     starfieldTimer = setTimeout(audioNodes.pluckStar, 3000 + Math.random() * 5000);
+    bowlDingTimer = setTimeout(audioNodes.bowlDing, 3000 + Math.random() * 5000);
+    bowlRimRunTimer = setTimeout(audioNodes.bowlRimRun, 8000 + Math.random() * 12000);
 }
 
 function handleFirstInteraction(e) {
