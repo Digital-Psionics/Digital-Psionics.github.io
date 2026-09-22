@@ -1352,7 +1352,11 @@ function doForge(){
       let sigilImg=await currentForge.render((frac,label)=>updateForgeProgress(frac,label));
 
       const wantsWallpaper=wallpaperToggle.checked;
+      // Disable the aspect-ratio transition for this resize so we don't measure
+      // the box mid-animation (that was causing the saved canvas to be squished).
+      canvasWrap.style.transition='none';
       canvasWrap.classList.toggle('wallpaper-mode',wantsWallpaper);
+      canvasWrap.offsetHeight; // force reflow to apply the new aspect-ratio immediately
 
       if(wantsWallpaper){
         const WP_W=1920,WP_H=1080;
@@ -1381,6 +1385,7 @@ function doForge(){
       ctx.imageSmoothingEnabled=true;
       ctx.imageSmoothingQuality='high';
       ctx.drawImage(currentSigil,0,0,sigilCanvas.width,sigilCanvas.height);
+      canvasWrap.style.transition=''; // re-enable transitions for future toggles
 
       updateInfoPanel(currentForge);
 
